@@ -8,23 +8,32 @@ from __future__ import absolute_import, division, print_function
 from pykern.pkdebug import pkdp
 
 
-def do_form(form):
+def do_form(request):
     """Self-extracting archive post
 
     Args:
-        form (flask.request.Form): what to import
+        form (flask.request): what to import
 
     Returns:
         dict: data
     """
     from sirepo import uri_router
     from sirepo import simulation_db
-    import base64
-    import StringIO
+    from sirepo import html_codec
+    import urlparse
+    import io
 
+    form = urlparse.parse_qs(
+        request.get_data(as_text=False, parse_form_data=False),
+        keep_blank_values=True,
+    )
     if not 'zip' in form:
         raise uri_router.NotFound('missing zip in form')
-    data = read_zip(StringIO.StringIO(base64.decodestring(form['zip'])))
+    data = read_zip(
+        io.BytesIO(
+            html_codec.bin_attr_decode(form['zip'][0]),
+        ),
+    )
     data.models.simulation.folder = '/Import'
     return simulation_db.save_new_simulation(data.simulationType, data)
 

@@ -1,6 +1,6 @@
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta http-equiv="Content-Type" content="{{ mimetype }}; charset={{ charset }}" />
 <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAUVBMVEUAAABdu0Zdu0Zdu0Zdu0ZDhMVDhMVdu0ZDhMVdu0ZDhMVDhMVDhMVDhMVDhMVDhMVdu0ZDhMVdu0ZDhMVSjrOFsXK41DJvoo5gmKBKibz///+PyjyBAAAAEnRSTlMA7xBgcDDPz1Dfv68gn0AQMGBOVV7xAAAAAWJLR0QadWfkMgAAAGVJREFUGNN9jFkOgCAMRCsuuC8dRb3/RcUiCibaj0nm5XWIPo753WOScEyUdE7DhyueRcBmFvR5Qe4Vu1DAGECzvoXVWOIV5hJm261SsfKLqBvI7gmI0IqKjhzoC7c+QMBIE/3dAVozBrzHhoOmAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE2LTA3LTEzVDE0OjQ0OjMzKzAwOjAwtzu00wAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxNi0wMy0yM1QxNjozNDo1MSswMDowMGQD4m8AAAAASUVORK5CYII=" />
 <title>{{ appShortName | e }} - {{ productShortName | e }}</title>
 <style type="text/css">
@@ -54,7 +54,7 @@ return true;
 <form onsubmit="SIREPO.onSubmit(this)" action="" method="post">
 <input class="sr_ses_server" name="server" type="text" value="{{ server }}"/>
 <button type="submit">Send to Server</button>
-<input name="zip" type="hidden" value="{{ zip }}" />
+<input name="zip" type="hidden" value="{{ zip_tag }}" />
 </form>
 </div>
 </body>
