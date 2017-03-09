@@ -402,6 +402,66 @@ def api_root(simulation_type):
     return _render_root_page('index', values)
 app_root = api_root
 
+from chxdb import get_scans_list, get_data, get_scan, get_and_plot
+from databroker import get_images, get_fields, get_table
+def api_experimentList(keyword):
+    scans_list = get_scans_list(keyword=keyword)
+    d = {}
+    for i, s in enumerate(scans_list):
+        d[i] = {
+            'fields': list(get_fields(s)),
+            'start': s.start,
+            'stop': s.stop,
+        }
+    return _json_response(
+        {
+            'length': len(scans_list),
+            'scans': d,
+        },
+        pretty=True
+    )
+app_experiment_list = api_experimentList
+
+def api_experimentScan(scan_id):
+    scan, t = get_scan(scan_id=scan_id)
+    d = {
+        'fields': list(get_fields(scan)),
+        'start': scan.start,
+        'stop': scan.stop,
+        'data': repr(get_table(scan)),
+    }
+    return _json_response(
+        {
+            'scan': d,
+            'timestamp': t,
+        },
+        pretty=True
+    )
+app_experiment_scan = api_experimentScan
+
+from matplotlib import pyplot as plt
+def api_experimentImages(scan_id, detector, frame):
+    frame = int(frame)
+    scan, t = get_scan(scan_id=scan_id)
+    images = get_images(scan, detector)[0]
+    if frame < 0:
+        return _json_response({
+            'error': 'Only non-negative values are acceptable. The provided frame number is negative ({})'.format(frame),
+        })
+    elif frame >= len(images):
+        return _json_response({
+            'error': 'Cannot find image #{}. Number of images is {}'.format(frame, len(images)),
+        })
+
+    filename = 'none.png'
+    plt.imshow(images[frame])
+    plt.savefig(filename)
+    with open(filename) as f:
+        content = f.read()
+    content_type = 'image/png'
+    return _as_tab(flask.make_response(content), content_type)
+app_experiment_images = api_experimentImages
+
 
 def api_runCancel():
     data = _parse_data_input()
@@ -716,6 +776,10 @@ class _WSGIApp(object):
 def _as_attachment(response, content_type, filename):
     response.mimetype = content_type
     response.headers['Content-Disposition'] = 'attachment; filename="{}"'.format(filename)
+    return response
+
+def _as_tab(response, content_type):
+    response.mimetype = content_type
     return response
 
 
