@@ -402,14 +402,14 @@ def api_root(simulation_type):
     return _render_root_page('index', values)
 app_root = api_root
 
-from chxdb import get_scans_list, get_data, get_scan, get_and_plot
-from databroker import get_images, get_fields, get_table
+from chxdb import get_scans_list, get_data, get_scan, get_and_plot, save_raw_image
+from databroker import db, get_images, get_fields, get_table
 def api_experimentList(keyword):
-    scans_list = get_scans_list(keyword=keyword)
+    scans_list = db(str(keyword))
     d = {}
     for i, s in enumerate(scans_list):
         d[i] = {
-            'fields': list(get_fields(s)),
+            # 'fields': list(get_fields(s)),
             'start': s.start,
             'stop': s.stop,
         }
@@ -423,24 +423,29 @@ def api_experimentList(keyword):
 app_experiment_list = api_experimentList
 
 def api_experimentScan(scan_id):
-    scan, t = get_scan(scan_id=scan_id)
-    d = {
-        'fields': list(get_fields(scan)),
-        'start': scan.start,
-        'stop': scan.stop,
-        'data': repr(get_table(scan)),
-    }
-    return _json_response(
-        {
-            'scan': d,
-            'timestamp': t,
-        },
-        pretty=True
-    )
+    try:
+        scan, t = get_scan(scan_id=scan_id)
+        d = {
+            'fields': list(get_fields(scan)),
+            'start': scan.start,
+            'stop': scan.stop,
+            'data': repr(get_table(scan)),
+        }
+        return _json_response(
+            {
+                'scan': d,
+                'timestamp': t,
+            },
+            pretty=True
+        )
+    except ValueError as e:
+        return _json_response({
+            'error': e.message,
+        })
 app_experiment_scan = api_experimentScan
 
 from matplotlib import pyplot as plt
-def api_experimentImages(scan_id, detector, frame):
+def api_experimentImages(detector, scan_id, frame):
     frame = int(frame)
     scan, t = get_scan(scan_id=scan_id)
     images = get_images(scan, detector)[0]
@@ -461,6 +466,44 @@ def api_experimentImages(scan_id, detector, frame):
     content_type = 'image/png'
     return _as_tab(flask.make_response(content), content_type)
 app_experiment_images = api_experimentImages
+
+import numpy as np
+def api_experimentRawImages(detector, scan_id, image_format='png'):
+    try:
+        scan, t = get_scan(scan_id=scan_id)
+        images = get_images(scan, detector)[0]
+        filename = 'none.{}'.format(image_format)
+        save_raw_image(np.mean(images, axis=0), filename)
+        with open(filename) as f:
+            content = f.read()
+        content_type = 'image/{}'.format(image_format)
+        return _as_tab(flask.make_response(content), content_type)
+    except ValueError as e:
+        return _json_response({
+            'error': e.message,
+        })
+app_experiment_raw_images = api_experimentRawImages
+
+def api_experimentDivideImages(detector, scan_id1, scan_id2, image_format='png'):
+    try:
+        scan1, t1 = get_scan(scan_id=scan_id1)
+        images1 = get_images(scan1, detector)[0]
+
+        scan2, t2 = get_scan(scan_id=scan_id2)
+        images2 = get_images(scan2, detector)[0]
+
+        filename = 'none.{}'.format(image_format)
+        plt.imshow(np.mean(images1, axis=0) / np.mean(images2, axis=0))
+        plt.savefig(filename)
+        with open(filename) as f:
+            content = f.read()
+        content_type = 'image/{}'.format(image_format)
+        return _as_tab(flask.make_response(content), content_type)
+    except ValueError as e:
+        return _json_response({
+            'error': e.message,
+        })
+app_experiment_divide_images = api_experimentDivideImages
 
 
 def api_runCancel():
