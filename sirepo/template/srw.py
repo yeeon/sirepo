@@ -399,6 +399,12 @@ def fixup_old_data(data):
             for field in key_value_pairs.keys():
                 if field not in item:
                     item[field] = key_value_pairs[field]
+    for item in data['models']['beamline']:
+        if item['type'] == 'sample':
+            if 'horizontalCenterCoordinate' not in item:
+                item['horizontalCenterCoordinate'] = _SCHEMA['model']['sample']['horizontalCenterCoordinate'][2]
+                item['verticalCenterCoordinate'] = _SCHEMA['model']['sample']['verticalCenterCoordinate'][2]
+
     for k in data['models']:
         if k == 'sourceIntensityReport' or k == 'initialIntensityReport' or template_common.is_watchpoint(k):
             if 'fieldUnits' not in data['models'][k]:
@@ -620,6 +626,10 @@ def lib_files(data, source_lib, report=None):
         list: py.path.local of source files
     """
     res = []
+
+    #TODO(MR): possibly need to fix up old data before accessing the data - old tests fail.
+    # fixup_old_data(data)
+
     dm = data.models
     # the mirrorReport.heightProfileFile may be different than the file in the beamline
     if report == 'mirrorReport':
@@ -630,7 +640,7 @@ def lib_files(data, source_lib, report=None):
     for m in dm.beamline:
         for k, v in _SCHEMA.model[m.type].items():
             t = v[1]
-            if m[k] and t in ['MirrorFile', 'ImageFile']:
+            if k in m and m[k] and t in ['MirrorFile', 'ImageFile']:
                 if not report or template_common.is_watchpoint(report) or report == 'multiElectronAnimation':
                     res.append(m[k])
     return template_common.internal_lib_files(res, source_lib)
@@ -1351,10 +1361,13 @@ def _generate_beamline_optics(models, last_id):
                     thickness={},
                     delta={},
                     atten_len={},
+                    xc={},
+                    yc={},
                     is_save_images=True,
                     prefix='""" + file_name + """')""",
                 item,
-                ['resolution', 'thickness', 'refractiveIndex', 'attenuationLength'],
+                ['resolution', 'thickness', 'refractiveIndex', 'attenuationLength',
+                 'horizontalCenterCoordinate', 'verticalCenterCoordinate'],
                 propagation)
             res_el += el
             res_pp += pp
