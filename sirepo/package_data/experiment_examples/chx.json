@@ -1,0 +1,22 @@
+{
+    "models": {
+        "panelState": {
+            "hidden": []
+        },
+        "simulation": {
+            "folder": "/NSLS-II",
+            "isExample": true,
+            "name": "CHX beamline",
+            "outOfSessionSimulationId": "",
+            "simulationId": "ABCDEF"
+        },
+        "simulationStatus": {},
+        "experiment": {
+            "beamline": "CHX",
+            "data": "Many",
+            "plots": "Many"
+        }
+    },
+    "simulationType": "experiment",
+    "version": "20170317.000000"
+}

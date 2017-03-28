@@ -1,0 +1,14 @@
+{
+    "models": {
+        "simulation": {
+            "folder": "/",
+            "isExample": false,
+            "name": "CHX example",
+            "outOfSessionSimulationId": "",
+            "simulationId": "BBB"
+        },
+        "simulationStatus": {}
+    },
+    "simulationType": "experiment",
+    "version": "20170317.000000"
+}

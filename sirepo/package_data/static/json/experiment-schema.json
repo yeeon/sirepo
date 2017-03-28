@@ -1,0 +1,56 @@
+{
+    "enum": {
+        "ColorMap": [
+            ["jet", "jet"],
+            ["gray", "gray"]
+        ],
+        "IntensityPlotsScale": [
+            ["linear", "Linear"],
+            ["log", "Natural Logarithm"],
+            ["log2", "Base-2 Logarithm"],
+            ["log10", "Base-10 Logarithm"]
+        ],
+        "IntensityPlotsWidth": [
+            ["100", "100"],
+            ["200", "200"],
+            ["400", "400"],
+            ["800", "800"],
+            ["1000", "1000"],
+            ["0", "Original Size"]
+        ],
+        "PlotAxis": [
+            ["x", "Horizontal"],
+            ["y", "Vertical"]
+        ],
+        "SimulationState": [
+            ["initial", "Initial State"],
+            ["running", "Running"],
+            ["completed", "Completed"],
+            ["canceled", "Canceled"]
+        ],
+        "DynamicList": [
+            ["Comissioning", "Comissioning"],
+            ["Experiment", "Experiment"],
+            ["Analysis", "Analysis"]
+        ]
+    },
+    "model": {
+        "experiment": {
+            "title": ["Title of the experiment", "DynamicList"],
+            "beamline": ["Name of the beamline", "String"],
+            "data": ["Data", "String"],
+            "plots": ["Plots", "String"]
+        }
+    },
+    "view": {
+        "experiment": {
+            "title": "Experiment",
+            "basic": [],
+            "advanced": [
+                "beamline",
+                "data",
+                "plots"
+            ]
+        }
+    }
+}
