@@ -999,7 +999,7 @@ SIREPO.app.directive('reportContent', function(panelState) {
         },
         template: [
             '<div data-ng-class="{\'sr-panel-loading\': panelState.isLoading(modelKey), \'sr-panel-error\': panelState.getError(modelKey), \'sr-panel-running\': panelState.isRunning(modelKey)}" class="panel-body" data-ng-hide="panelState.isHidden(modelKey)">',
-              '<div data-ng-show="panelState.isLoading(modelKey)" class="lead sr-panel-wait"><span class="glyphicon glyphicon-hourglass"></span> {{ panelState.getStatusText(modelKey) }}</div>',
+              '<div data-ng-show="panelState.isLoading(modelKey)" class="lead sr-panel-wait"><span class="fa fa-spinner fa-pulse fa-1x fa-fw"></span> {{ panelState.getStatusText(modelKey) }}</div>',
               '<div data-ng-show="panelState.getError(modelKey)" class="lead sr-panel-wait"><span class="glyphicon glyphicon-exclamation-sign"></span> {{ panelState.getError(modelKey) }}</div>',
               '<div data-ng-switch="reportContent" class="{{ panelState.getError(modelKey) ? \'sr-hide-report\' : \'\' }}">',
                 '<div data-ng-switch-when="2d" data-plot2d="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
