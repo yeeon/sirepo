@@ -1,0 +1,16 @@
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-7">
+        <div data-report-panel="dicom" data-model-name="dicomAnimation" data-panel-title="{{ source.dicomTitle() }}">
+        </div>
+    </div>
+    <div class="col-md-3">
+      <div data-dicom-histogram="" data-model-name="dicomAnimation"></div>
+    </div>
+    <div class="col-md-2">
+      <div style="padding: 1em"><img width= "100%" src="static/img/robot-orb.png"></div>
+      <div data-roi-table="source"></div>
+    </div>
+  </div>
+</div>
+<div data-modal-editor="" view-name="dicomAnimation" data-parent-controller="parentController" data-model-data="modelAccess"></div>

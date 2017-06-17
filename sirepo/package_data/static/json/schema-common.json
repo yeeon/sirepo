@@ -1,5 +1,5 @@
 {
-    "version": "20170516.000001",
+    "version": "20170717.000000",
     "appInfo": {
         "elegant": {
             "longName": "Elegant",
@@ -12,6 +12,10 @@
         "hellweg": {
             "longName": "Hellweg",
             "shortName": "Hellweg"
+        },
+        "robot": {
+            "longName": "RS4PI",
+            "shortName": "RS4PI"
         },
         "shadow": {
             "longName": "SHADOW",

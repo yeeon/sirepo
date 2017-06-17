@@ -1,0 +1,30 @@
+{
+    "models": {
+        "dicomAnimation": {
+            "dicomPlane": "t",
+            "frameIndex": 0
+        },
+        "dicomAnimation2": {
+            "dicomPlane": "t",
+            "frameIndex": 0
+        },
+        "dicomSeries": {},
+        "dicomWindow": {
+            "center": 150,
+            "width": 2400
+        },
+        "panelState": {
+            "hidden": []
+        },
+        "simulation": {
+            "folder": "/",
+            "isExample": false,
+            "name": "test",
+            "outOfSessionSimulationId": "",
+            "simulationId": "bEx5S3NV",
+            "simulationSerial": 1494020123970251
+        }
+    },
+    "simulationType": "robot",
+    "version": "20170515.000000"
+}

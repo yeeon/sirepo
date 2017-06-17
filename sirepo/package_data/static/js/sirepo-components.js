@@ -1013,11 +1013,12 @@ SIREPO.app.directive('reportContent', function(panelState) {
                 '<div data-ng-switch-when="2d" data-plot2d="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
                 '<div data-ng-switch-when="3d" data-plot3d="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
                 '<div data-ng-switch-when="heatmap" data-heatmap="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
-                //TODO(pjm): these reports are specific to the elegant/hellweg apps
+                //TODO(pjm): these reports are specific to the apps
                 '<div data-ng-switch-when="lattice" data-lattice="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
                 '<div data-ng-switch-when="particle" data-particle="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
                 '<div data-ng-switch-when="parameter" data-parameter-plot="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
                 '<div data-ng-switch-when="conductorGrid" data-conductor-grid="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
+                '<div data-ng-switch-when="dicom" data-dicom-plot="" class="sr-plot" data-model-name="{{ modelKey }}"></div>',
               '</div>',
               '<div data-ng-transclude=""></div>',
             '</div>',
@@ -1066,7 +1067,8 @@ SIREPO.app.directive('appHeaderLeft', function(panelState, appState, requestSend
         },
         template: [
             '<ul class="nav navbar-nav" data-ng-if="showMenu()">',
-              '<li data-ng-class="{active: nav.isActive(\'simulations\')}"><a href data-ng-click="nav.openSection(\'simulations\')"><span class="glyphicon glyphicon-th-list"></span> Simulations</a></li>',
+              //TODO(pjm): Studies vs Simulations
+              '<li data-ng-class="{active: nav.isActive(\'simulations\')}"><a href data-ng-click="nav.openSection(\'simulations\')"><span class="glyphicon glyphicon-th-list"></span> Studies</a></li>',
             '</ul>',
             '<div data-ng-if="showTitle()" class="navbar-text"><a href data-ng-click="showSimulationModal()"><span data-ng-if="nav.sectionTitle()" class="glyphicon glyphicon-pencil"></span> <strong data-ng-bind="nav.sectionTitle()"></strong></a> <a href="{{ nav.sectionURL() }}" class="glyphicon glyphicon-link"></a></div>',
         ].join(''),

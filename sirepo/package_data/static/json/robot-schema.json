@@ -1,0 +1,64 @@
+{
+    "enum": {
+        "DicomPlane": [
+            ["c", "Coronal"],
+            ["t", "Transverse"],
+            ["s", "Sagittal"]
+        ]
+    },
+    "model": {
+        "dicomAnimation": {
+            "dicomPlane": ["Plane", "DicomPlane"],
+            "frameIndex": ["Frame Index", "Integer"]
+        },
+        "dicomSeries": {
+            "description": ["Series Description", "String"]
+        },
+        "dicomWindow": {
+            "center": ["Window Center", "Float"],
+            "width": ["Window Width", "Float"]
+        },
+        "instance": {
+            "filePath": ["File Path", "String"]
+        },
+        "simulation": {
+            "name": ["Name", "String"]
+        },
+        "simulationFolder": {
+            "name": ["Folder Name", "String"]
+        },
+        "study": {
+            "description": ["Study Description", "String"]
+        }
+    },
+    "view": {
+        "dicomAnimation": {
+            "title": "DICOM Viewer",
+            "advanced": [
+                "dicomPlane",
+                "dicomWindow.center",
+                "dicomWindow.width"
+            ]
+        },
+        "dicomWindow": {
+            "title": "Dicom Window Aperture",
+            "basic": [
+                "center",
+                "width"
+            ],
+            "advanced": []
+        },
+        "simulation": {
+            "title": "DICOM Session",
+            "advanced": [
+                "name"
+            ]
+        },
+        "simulationFolder": {
+            "title": "New Folder",
+            "advanced": [
+                "name"
+            ]
+        }
+    }
+}

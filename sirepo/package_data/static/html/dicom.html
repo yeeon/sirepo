@@ -1,0 +1,21 @@
+    <div>
+        <button class="btn btn-default" data-ng-click="setZoomMode('advanceFrame')" data-ng-class="{active: zoomMode == 'advanceFrame'}" type="button" title="Scroll through frames"><span class="glyphicon glyphicon-transfer"></span></button>
+        <button class="btn btn-default" data-ng-click="setZoomMode('zoom')" data-ng-class="{active: zoomMode == 'zoom'}" type="button" title="Zoom and pan"><span class="glyphicon glyphicon-zoom-in"></span></button>
+        <button class="btn btn-default" type="button" title="Edit ROI"><span class="glyphicon glyphicon-edit"></span></button>
+    </div>
+    <div style="position: relative" ng-class="{'sr-plot-loading': isLoading(), 'sr-plot-cleared': dataCleared}">
+      <canvas ng-attr-style="position: absolute; left: {{ margin.left }}px; top: {{ margin.top }}px;" ng-attr-transform="translate({{ margin.left }},{{ margin.top }})"></canvas>
+      <div><svg class="sr-plot" style="position: relative;" ng-attr-width="{{ margin.left + margin.right + canvasSize }}" ng-attr-height="{{ margin.top + margin.bottom + canvasHeight }}">
+        <g ng-attr-transform="translate({{ margin.left }},{{ margin.top }})">
+          <g class="polygons"></g>
+          <rect class="mouse-rect mouse-zoom" ng-attr-width="{{ canvasSize }}" ng-attr-height="{{ canvasHeight }}" style="pointer-events: all; fill: none;"></rect>
+          <g class="x axis" ng-attr-transform="translate(0, {{ canvasHeight }})">
+            <text class="x-axis-label" ng-attr-x="{{ canvasSize / 2 }}" y="40"></text>
+          </g>
+          <g class="y axis">
+            <text class="y-axis-label" ng-attr-x="{{ - canvasHeight / 2 }}" y="-45" transform="rotate(270)"></text>
+          </g>
+        </g>
+      </svg></div>
+      <div data-animation-buttons=""></div>
+    </div>

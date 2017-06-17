@@ -88,6 +88,15 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
             frameCache.setCurrentFrame(scope.modelName, next);
             requestData();
         };
+        scope.defaultFrame = function() {
+            if (scope.getDefaultFrame) {
+                frameCache.setCurrentFrame(scope.modelName, scope.getDefaultFrame());
+                requestData();
+            }
+            else {
+                scope.lastFrame();
+            }
+        };
         scope.firstFrame = function() {
             scope.isPlaying = false;
             frameCache.setCurrentFrame(scope.modelName, 0);
@@ -131,14 +140,14 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
         scope.$on('modelsLoaded', requestData);
         scope.$on('framesLoaded', function(event, oldFrameCount) {
             if (scope.prevFrameIndex < 0 || oldFrameCount === 0) {
-                scope.lastFrame();
+                scope.defaultFrame();
             }
             else if (scope.prevFrameIndex > frameCache.getFrameCount(scope.modelName)) {
                 scope.firstFrame();
             }
             // go to the next last frame, if the current frame was the previous last frame
             else if (frameCache.getCurrentFrame(scope.modelName) >= oldFrameCount - 1) {
-                scope.lastFrame();
+                scope.defaultFrame();
             }
         });
         return requestData;
@@ -250,6 +259,48 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
                 });
         },
 
+        drawImage: function(xAxisScale, yAxisScale, width, height, xValues, yValues, canvas, ctx, imageObj, alignOnPixel) {
+            var xZoomDomain = xAxisScale.domain();
+            var xDomain = [xValues[0], xValues[xValues.length - 1]];
+            var yZoomDomain = yAxisScale.domain();
+            var yDomain = [yValues[0], yValues[yValues.length - 1]];
+            var zoomWidth = xZoomDomain[1] - xZoomDomain[0];
+            var zoomHeight = yZoomDomain[1] - yZoomDomain[0];
+            canvas.attr('width', width)
+                .attr('height', height);
+            var xPixelSize = alignOnPixel ? ((xDomain[1] - xDomain[0]) / zoomWidth * width / xValues.length) : 0;
+            var yPixelSize = alignOnPixel ? ((yDomain[1] - yDomain[0]) / zoomHeight * height / yValues.length) : 0;
+            ctx.imageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+            ctx.drawImage(
+                imageObj,
+                -(xZoomDomain[0] - xDomain[0]) / zoomWidth * width - xPixelSize / 2,
+                -(yDomain[1] - yZoomDomain[1]) / zoomHeight * height - yPixelSize / 2,
+                (xDomain[1] - xDomain[0]) / zoomWidth * width + xPixelSize,
+                (yDomain[1] - yDomain[0]) / zoomHeight * height + yPixelSize);
+        },
+
+        /* drawImage: function(xAxisScale, yAxisScale, canvasSize, xValues, yValues, canvas, ctx, imageObj, alignOnPixel) {
+         *     var xZoomDomain = xAxisScale.domain();
+         *     var xDomain = [xValues[0], xValues[xValues.length - 1]];
+         *     var yZoomDomain = yAxisScale.domain();
+         *     var yDomain = [yValues[0], yValues[yValues.length - 1]];
+         *     var zoomWidth = xZoomDomain[1] - xZoomDomain[0];
+         *     var zoomHeight = yZoomDomain[1] - yZoomDomain[0];
+         *     canvas.attr('width', canvasSize)
+         *         .attr('height', canvasSize);
+         *     var xPixelSize = alignOnPixel ? ((xDomain[1] - xDomain[0]) / zoomWidth * canvasSize / xValues.length) : 0;
+         *     var yPixelSize = alignOnPixel ? ((yDomain[1] - yDomain[0]) / zoomHeight * canvasSize / yValues.length) : 0;
+         *     ctx.imageSmoothingEnabled = false;
+         *     ctx.msImageSmoothingEnabled = false;
+         *     ctx.drawImage(
+         *         imageObj,
+         *         -(xZoomDomain[0] - xDomain[0]) / zoomWidth * canvasSize - xPixelSize / 2,
+         *         -(yDomain[1] - yZoomDomain[1]) / zoomHeight * canvasSize - yPixelSize / 2,
+         *         (xDomain[1] - xDomain[0]) / zoomWidth * canvasSize + xPixelSize,
+         *         (yDomain[1] - yDomain[0]) / zoomHeight * canvasSize + yPixelSize);
+         * },
+         */
         extractUnits: function(scope, axis, label) {
             scope[axis + 'units'] = '';
             var match = label.match(/\[(.*?)\]/);
@@ -311,11 +362,11 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
                 scope.isAnimation = scope.modelName.indexOf('Animation') >= 0;
                 var requestData;
 
-                if (scope.isAnimation) {
-                    requestData = initAnimation(scope);
-                }
-                else if (scope.isClientOnly) {
+                if (scope.isClientOnly) {
                     requestData = function() {};
+                }
+                else if (scope.isAnimation) {
+                    requestData = initAnimation(scope);
                 }
                 else {
                     requestData = initPlot(scope);
@@ -350,7 +401,12 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
                 $($window).resize(scope.windowResize);
                 scope.init();
                 if (appState.isLoaded()) {
-                    requestData();
+                    if (scope.isAnimation && scope.defaultFrame) {
+                        scope.defaultFrame();
+                    }
+                    else {
+                        requestData();
+                    }
                 }
             });
         },
@@ -400,6 +456,25 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
             var spacing = isHorizontalAxis ? 60 : 40;
             var n = Math.max(Math.round(width / spacing), 2);
             axis.ticks(n);
+        },
+
+        // ensures the axis domain fits in the fullDomain
+        // returns true if size is reset to full
+        trimDomain: function(axisScale, fullDomain) {
+            var dom = axisScale.domain();
+            var zoomSize = dom[1] - dom[0];
+
+            if (zoomSize >= (fullDomain[1] - fullDomain[0])) {
+                axisScale.domain(fullDomain);
+                return true;
+            }
+            if (dom[0] < fullDomain[0]) {
+                axisScale.domain([fullDomain[0], zoomSize + fullDomain[0]]);
+            }
+            if (dom[1] > fullDomain[1]) {
+                axisScale.domain([fullDomain[1] - zoomSize, fullDomain[1]]);
+            }
+            return false;
         },
     };
 });
@@ -753,22 +828,13 @@ SIREPO.app.directive('plot2d', function(plotting) {
                 if (! xDomain) {
                     return;
                 }
-                var xdom = xAxisScale.domain();
-                var zoomWidth = xdom[1] - xdom[0];
 
-                if (zoomWidth >= (xDomain[1] - xDomain[0])) {
+                if (plotting.trimDomain(xAxisScale, xDomain)) {
                     select('.overlay').attr('class', 'overlay mouse-zoom');
-                    xAxisScale.domain(xDomain);
                     yAxisScale.domain(yDomain).nice();
                 }
                 else {
                     select('.overlay').attr('class', 'overlay mouse-move-ew');
-                    if (xdom[0] < xDomain[0]) {
-                        xAxisScale.domain([xDomain[0], zoomWidth + xDomain[0]]);
-                    }
-                    if (xdom[1] > xDomain[1]) {
-                        xAxisScale.domain([xDomain[1] - zoomWidth, xDomain[1]]);
-                    }
                     plotting.recalculateDomainFromPoints(yAxisScale, points[0], xAxisScale.domain());
                 }
                 resetZoom();
@@ -1005,27 +1071,6 @@ SIREPO.app.directive('plot3d', function(appState, plotting) {
                 focusPointX.load(points, true);
             }
 
-            function drawImage() {
-                var xZoomDomain = xAxisScale.domain();
-                var xDomain = fullDomain[0];
-                var yZoomDomain = yAxisScale.domain();
-                var yDomain = fullDomain[1];
-                var zoomWidth = xZoomDomain[1] - xZoomDomain[0];
-                var zoomHeight = yZoomDomain[1] - yZoomDomain[0];
-                canvas.attr('width', $scope.canvasSize)
-                    .attr('height', $scope.canvasSize);
-                ctx.imageSmoothingEnabled = false;
-                ctx.msImageSmoothingEnabled = false;
-                var xPixelSize = (xDomain[1] - xDomain[0]) / zoomWidth * $scope.canvasSize / xValues.length;
-                var yPixelSize = (yDomain[1] - yDomain[0]) / zoomHeight * $scope.canvasSize / yValues.length;
-                ctx.drawImage(
-                    imageObj,
-                    -(xZoomDomain[0] - xDomain[0]) / zoomWidth * $scope.canvasSize - xPixelSize / 2,
-                    -(yDomain[1] - yZoomDomain[1]) / zoomHeight * $scope.canvasSize - yPixelSize / 2,
-                    (xDomain[1] - xDomain[0]) / zoomWidth * $scope.canvasSize + xPixelSize,
-                    (yDomain[1] - yDomain[0]) / zoomHeight * $scope.canvasSize + yPixelSize);
-            }
-
             function drawLineout(axis, key, points, cutLine) {
                 if (! lineOuts[axis] || ! SIREPO.PLOTTING_SHOW_CONVERGENCE_LINEOUTS) {
                     lineOuts[axis] = {};
@@ -1094,7 +1139,7 @@ SIREPO.app.directive('plot3d', function(appState, plotting) {
                 else {
                     select('rect.mouse-rect-xy').attr('class', 'mouse-rect-xy mouse-zoom');
                 }
-                drawImage();
+                plotting.drawImage(xAxisScale, yAxisScale, $scope.canvasSize, xValues, yValues, canvas, ctx, imageObj, true);
                 drawBottomPanelCut();
                 drawRightPanelCut();
                 resetZoom();
