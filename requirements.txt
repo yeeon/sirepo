@@ -12,6 +12,7 @@ numpy
 pillow
 psycopg2
 pyIsEmail
+pydicom
 pykern
 pytz==2015.7
 scipy
