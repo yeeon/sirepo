@@ -451,6 +451,25 @@ def _summarize_dicom_series(simulation, series):
         filename = _dicom_path(simulation, 'c' + str(idx).zfill(5))
         simulation_db.write_json(filename, res)
 
+    #TODO(pjm): refactor into one common method
+    for idx in range(len(all_frame_pixels[0])):
+        pixels = np.array(all_frame_pixels)[:, :, idx]
+        shape = pixels.shape
+        res = {
+            'pixel_array': np.flipud(pixels).tolist(),
+            'shape': shape,
+            'ImagePositionPatient': [res['ImagePositionPatient'][0], res['ImagePositionPatient'][1], str(idx * res['PixelSpacing'][0])],
+            'ImageOrientationPatient': res['ImageOrientationPatient'],
+            #TODO(pjm): fix this, as above
+            'PixelSpacing': [res['PixelSpacing'][0], 1.50217533112],
+        }
+        res['domain'] = _calculate_domain(_position_matrix(res), shape)
+        if not first_pos:
+            first_pos = res['domain']
+        last_pos = res['domain']
+        filename = _dicom_path(simulation, 's' + str(idx).zfill(5))
+        simulation_db.write_json(filename, res)
+
     return np.array(all_frame_pixels)
 
 
