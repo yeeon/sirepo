@@ -198,7 +198,7 @@
       background-color: #777;
     }
     .sr-panel-error .sr-panel-wait {
-      position: absolute;
+      white-space: pre-line;
       color: #fad8de;
       display: block;
     }
@@ -241,7 +241,8 @@
     }
     .sr-plot text.z-axis-label,
     .sr-plot text.y-axis-label,
-    .sr-plot text.x-axis-label {
+    .sr-plot text.x-axis-label,
+    .sr-plot text.frequency-label {
       font-size: 14px;
       font-weight: bold;
       text-anchor: middle;
@@ -445,6 +446,13 @@ ellipse.srw-fiber-right {
   stroke-width: 1;
   fill: #9498a1;
 }
+ellipse.srw-curvature {
+  stroke: blue;
+  stroke-width: 2;
+  stroke-dasharray: 1px, 5px;
+  stroke-linecap: round;
+  fill: none;
+}
 path.srw-lens {
   stroke: #000;
   fill: #ddee00;
@@ -538,6 +546,8 @@ tr:hover .sr-button-bar-parent {
 
 .split-pane-divider {
   -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .sr-split-pane-frame {
   box-sizing: border-box;
@@ -723,9 +733,13 @@ li.sr-model-list-item > a {
   box-shadow: 0 0 25px gray;
   cursor: move;
   -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .elegant-icon {
   -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
   min-width: 4em;
 }
 .elegant-icon span {
@@ -756,6 +770,8 @@ li.sr-model-list-item > a {
 }
 .hellweg-icon {
   -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
   display: inline-block;
 }
 .hellweg-icon span {
@@ -788,35 +804,35 @@ p.hellweg-drop-zone {
   padding-bottom: 25px;
 }
 
-.fete-plate {
+.warpvnd-plate {
   fill: rgba(105, 146, 255, 0.3);
   stroke: rgb(95, 176, 228);
   cursor: pointer;
 }
-.fete-plate-voltage {
+.warpvnd-plate-voltage {
   stroke: rgb(228, 176, 95);
   fill: rgba(255, 146, 105, 0.3);
 }
-.fete-shape {
+.warpvnd-shape {
   cursor: move;
   stroke: rgb(95, 176, 228);
   stroke-width: 2;
   fill: rgba(105, 146, 255, 0.3);
 }
-.fete-shape-voltage {
+.warpvnd-shape-voltage {
   stroke: rgb(228, 176, 95);
   fill: rgba(255, 146, 105, 0.3);
 }
-.fete-shape:hover {
+.warpvnd-shape:hover {
   fill: lightgreen;
   filter: drop-shadow(2px 2px 2px #999);
 }
-.fete-drag-shadow {
+.warpvnd-drag-shadow {
   fill: black;
   stroke-width: 0;
   filter: drop-shadow(2px 2px 2px #999);
 }
-.fete-drag-shadow:hover {
+.warpvnd-drag-shadow:hover {
   fill: black;
 }
 .sr-drag-clone-hidden {

@@ -25,19 +25,9 @@ import py.path
 import re
 
 #: Simulation type
-SIM_TYPE = 'warp'
+SIM_TYPE = 'warppba'
 
 WANT_BROWSER_FRAME_CACHE = True
-
-_MIN_MAX_INDEX = {
-    'x': [3, 4],
-    'y': [5, 6],
-    'z': [7, 8],
-    'ux': [9, 10],
-    'uy': [11, 12],
-    'uz': [13, 14],
-}
-
 
 def background_percent_complete(report, run_dir, is_running, schema):
     files = _h5_file_list(run_dir)
@@ -104,9 +94,9 @@ def extract_field_report(field, coordinate, mode, data_file):
 
 
 def extract_particle_report(args, particle_type, run_dir, data_file):
-    xarg = args[0]
-    yarg = args[1]
-    nbins = args[2]
+    xarg = args.x
+    yarg = args.y
+    nbins = args.histogramBins
     opmd = _opmd_time_series(data_file)
     data_list = opmd.get_particle(
         var_list=[xarg, yarg],
@@ -253,7 +243,8 @@ def generate_parameters_file(data, run_dir=None, is_parallel=False):
         v['useLaser'] = 1
     if data['models']['electronBeam']['beamRadiusMethod'] == 'a':
         v['electronBeam_transverseEmittance'] = 0
-    return pkjinja.render_resource('warp.py', v)
+    b = template_common.resource_dir(SIM_TYPE).join(template_common.PARAMETERS_PYTHON_FILE)
+    return pkjinja.render_file(b + '.jinja', v)
 
 
 def get_animation_name(data):
@@ -263,12 +254,23 @@ def get_animation_name(data):
 def get_simulation_frame(run_dir, data, model_data):
     frame_index = int(data['frameIndex'])
     data_file = open_data_file(run_dir, frame_index)
-    args = data['animationArgs'].split('_')
     if data['modelName'] == 'fieldAnimation':
+        args = template_common.parse_animation_args(
+            data,
+            {'': ['field', 'coordinate', 'mode', 'startTime']},
+        )
         return _field_animation(args, data_file)
     if data['modelName'] == 'particleAnimation':
+        args = template_common.parse_animation_args(
+            data,
+            {'': ['x', 'y', 'histogramBins', 'xMin', 'xMax', 'yMin', 'yMax', 'zMin', 'zMax', 'uxMin', 'uxMax', 'uyMin', 'uyMax', 'uzMin', 'uzMax', 'startTime']},
+        )
         return extract_particle_report(args, 'electrons', run_dir, data_file)
     if data['modelName'] == 'beamAnimation':
+        args = template_common.parse_animation_args(
+            data,
+            {'': ['x', 'y', 'histogramBins', 'startTime']},
+        )
         return extract_particle_report(args, 'beam', run_dir, data_file)
     raise RuntimeError('{}: unknown simulation frame model'.format(data['modelName']))
 
@@ -436,9 +438,9 @@ def _adjust_z_width(data_list, data_file):
 
 
 def _field_animation(args, data_file):
-    field = args[0]
-    coordinate = args[1]
-    mode = args[2]
+    field = args.field
+    coordinate = args.coordinate
+    mode = args.mode
     if mode != 'all':
         mode = int(mode)
     res = extract_field_report(field, coordinate, mode, data_file)
@@ -470,16 +472,14 @@ def _opmd_time_series(data_file):
 
 
 def _particle_selection_args(args):
-    #TODO(pjm): base this on model name, not arg count
-    if len(args) <= 4:
+    if not 'uxMin' in args:
         return None
     res = {}
     for f in ('', 'u'):
         for f2 in ('x', 'y', 'z'):
             field = '{}{}'.format(f, f2)
-            min_max_index = _MIN_MAX_INDEX[field]
-            min = float(args[min_max_index[0]])
-            max = float(args[min_max_index[1]])
+            min = float(args[field + 'Min'])
+            max = float(args[field + 'Max'])
             if min == 0 and max == 0:
                 continue
             res[field] = [min, max]

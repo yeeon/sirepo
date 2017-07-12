@@ -13,16 +13,16 @@ SIREPO.app.config(function($routeProvider, localRoutesProvider) {
     var localRoutes = localRoutesProvider.$get();
     $routeProvider
         .when(localRoutes.source, {
-            controller: 'WARPSourceController as source',
-            templateUrl: '/static/html/warp-source.html' + SIREPO.SOURCE_CACHE_KEY,
+            controller: 'WarpPBASourceController as source',
+            templateUrl: '/static/html/warppba-source.html' + SIREPO.SOURCE_CACHE_KEY,
         })
         .when(localRoutes.dynamics, {
-            controller: 'WARPDynamicsController as dynamics',
-            templateUrl: '/static/html/warp-dynamics.html' + SIREPO.SOURCE_CACHE_KEY,
+            controller: 'WarpPBADynamicsController as dynamics',
+            templateUrl: '/static/html/warppba-dynamics.html' + SIREPO.SOURCE_CACHE_KEY,
         });
 });
 
-SIREPO.app.factory('warpService', function(appState, $rootScope) {
+SIREPO.app.factory('warpPBAService', function(appState, $rootScope) {
     var self = {};
     self.laserGridDimensions = null;
     self.beamGridDimensions = null;
@@ -59,7 +59,7 @@ SIREPO.app.factory('warpService', function(appState, $rootScope) {
     return self;
 });
 
-SIREPO.app.controller('WARPDynamicsController', function(appState, frameCache, warpService, persistentSimulation, $scope) {
+SIREPO.app.controller('WarpPBADynamicsController', function(appState, frameCache, warpPBAService, persistentSimulation, $scope) {
     var self = this;
     self.model = 'animation';
 
@@ -78,17 +78,17 @@ SIREPO.app.controller('WARPDynamicsController', function(appState, frameCache, w
     };
 
     self.isElectronBeam = function() {
-        return warpService.isElectronBeam();
+        return warpPBAService.isElectronBeam();
     };
 
     persistentSimulation.initProperties(self, $scope, {
-        fieldAnimation: ['field', 'coordinate', 'mode', 'startTime'],
-        particleAnimation: ['x', 'y', 'histogramBins', 'xMin', 'xMax', 'yMin', 'yMax', 'zMin', 'zMax', 'uxMin', 'uxMax', 'uyMin', 'uyMax', 'uzMin', 'uzMax', 'startTime'],
-        beamAnimation: ['x', 'y', 'histogramBins', 'startTime'],
+        fieldAnimation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'field', 'coordinate', 'mode', 'startTime'],
+        particleAnimation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'x', 'y', 'histogramBins', 'xMin', 'xMax', 'yMin', 'yMax', 'zMin', 'zMax', 'uxMin', 'uxMax', 'uyMin', 'uyMax', 'uzMin', 'uzMax', 'startTime'],
+        beamAnimation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'x', 'y', 'histogramBins', 'startTime'],
     });
 });
 
-SIREPO.app.controller('WARPSourceController', function(appState, frameCache, warpService, $scope) {
+SIREPO.app.controller('WarpPBASourceController', function(appState, frameCache, warpPBAService, $scope) {
     var self = this;
     $scope.appState = appState;
     var constants = {
@@ -300,11 +300,11 @@ SIREPO.app.controller('WARPSourceController', function(appState, frameCache, war
     }
 
     self.isLaserPulse = function() {
-        return warpService.isLaserPulse();
+        return warpPBAService.isLaserPulse();
     };
 
     self.isElectronBeam = function() {
-        return warpService.isElectronBeam();
+        return warpPBAService.isElectronBeam();
     };
 
     $scope.$watch('appState.models.laserPulse.pulseDimensions', pulseDimensionsChanged);
@@ -368,7 +368,9 @@ SIREPO.app.directive('appHeader', function(appState, panelState) {
         template: [
             '<div class="navbar-header">',
               '<a class="navbar-brand" href="/#about" data-ng-click="nav.openSection(\'simulations\')"><img style="width: 40px; margin-top: -10px;" src="/static/img/radtrack.gif" alt="radiasoft"></a>',
-              '<div class="navbar-brand"><a href data-ng-click="nav.openSection(\'simulations\')">WARP</a></div>',
+            '<div class="navbar-brand"><a href data-ng-click="nav.openSection(\'simulations\')">',
+            SIREPO.APP_SCHEMA.appInfo[SIREPO.APP_SCHEMA.simulationType].longName,
+            '</a></div>',
             '</div>',
             '<div data-app-header-left="nav"></div>',
             '<ul class="nav navbar-nav navbar-right" data-login-menu=""></ul>',

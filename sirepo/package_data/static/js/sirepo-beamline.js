@@ -3,13 +3,17 @@
 var srlog = SIREPO.srlog;
 var srdbg = SIREPO.srdbg;
 
-SIREPO.app.factory('beamlineService', function(appState) {
+SIREPO.app.factory('beamlineService', function(appState, $window) {
     var self = this;
     var canEdit = true;
     //TODO(pjm) keep in sync with template_common.DEFAULT_INTENSITY_DISTANCE
     // consider moving to "constant" section of schema
     var DEFAULT_INTENSITY_DISTANCE = 20;
     self.activeItem = null;
+
+    // Try to detect mobile/tablet devices using Mozilla recommendation below
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Browser_detection_using_the_user_agent
+    var isTouchscreen = /Mobi|Silk/i.test($window.navigator.userAgent);
 
     self.dismissPopup = function() {
         $('.srw-beamline-element-label').popover('hide');
@@ -70,7 +74,7 @@ SIREPO.app.factory('beamlineService', function(appState) {
     };
 
     self.isTouchscreen = function() {
-        return Modernizr.touch;
+        return isTouchscreen;
     };
 
     self.removeActiveItem = function() {
@@ -138,7 +142,7 @@ SIREPO.app.directive('beamlineBuilder', function(appState, beamlineService) {
               '<small data-ng-if="beamlineService.isEditable()"><em>drag and drop optical elements here to define the beamline</em></small></p>',
               '<div class="srw-beamline-container">',
                 '<div style="display: inline-block" data-ng-repeat="item in getBeamline() track by item.id">',
-                  '<div data-ng-if="$first" class="srw-drop-between-zone" data-ng-drop="true" data-ng-drop-success="dropBetween(0, $data)">&nbsp;</div><div data-ng-drag="true" data-ng-drag-data="item" data-item="item" data-beamline-item="" class="srw-beamline-element {{ isTouchscreen() ? \'\' : \'srw-hover\' }}" data-ng-class="{\'srw-disabled-item\': item.isDisabled}">',
+                  '<div data-ng-if="$first" class="srw-drop-between-zone" data-ng-drop="true" data-ng-drop-success="dropBetween(0, $data)">&nbsp;</div><div data-ng-drag="true" data-ng-drag-data="item" data-item="item" data-beamline-item="" class="srw-beamline-element {{ beamlineService.isTouchscreen() ? \'\' : \'srw-hover\' }}" data-ng-class="{\'srw-disabled-item\': item.isDisabled}">',
                   '</div><div class="srw-drop-between-zone" data-ng-drop="true" data-ng-drop-success="dropBetween($index + 1, $data)">&nbsp;</div>',
                 '</div>',
             '</div>',
@@ -228,9 +232,6 @@ SIREPO.app.directive('beamlineBuilder', function(appState, beamlineService) {
                     }
                 }
             };
-            $scope.isTouchscreen = function() {
-                return beamlineService.isTouchscreen();
-            };
             $scope.checkIfDirty = function() {
                 var isDirty = false;
                 if ($scope.beamlineModels) {
@@ -293,7 +294,8 @@ SIREPO.app.directive('beamlineIcon', function() {
                 '<rect x="23", y="36", width="5", height="24" class="srw-aperture" />',
               '</g>',
               '<g data-ng-switch-when="ellipsoidMirror">',
-                '<path d="M20 0 C30 10 30 50 20 60" class="srw-mirror" />',
+                '<path d="M30 2 C40 10 40 50 30 58 L43 58 L43 2 L30 2" class="srw-mirror" />',
+                '<ellipse cx="27" cy="30" rx="10" ry="28" class="srw-curvature" />',
               '</g>',
               '<g data-ng-switch-when="grating">',
                 '<polygon points="24,0 20,15, 24,17 20,30 24,32 20,45 24,47 20,60 24,60 28,60 28,0" class="srw-mirror" />',
@@ -302,7 +304,8 @@ SIREPO.app.directive('beamlineIcon', function() {
                 '<rect x="23" y="0" width="5", height="60" class="srw-mirror" />',
               '</g>',
               '<g data-ng-switch-when="sphericalMirror">',
-                '<path d="M20 0 C30 10 30 50 20 60 L33 60 L33 0 L20 0" class="srw-mirror" />',
+                '<path d="M28 6 C54 10 54 50 28 54 L49 54 L49 6 L28 6" class="srw-mirror" />',
+                '<ellipse cx="24" cy="30" rx="23" ry="23" class="srw-curvature" />',
               '</g>',
               '<g data-ng-switch-when="obstacle">',
                 '<rect x="15" y="20" width="20", height="20" class="srw-obstacle" />',

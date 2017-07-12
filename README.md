@@ -1,26 +1,28 @@
+
+
 # ![Sirepo](https://github.com/radiasoft/images/blob/master/sirepo/Sirepo_logo.png)
 
-#### Sirepo brings computational science to the cloud. Develop, run and share your HPC simulations.
+<p align="center">
 
-Sirepo brings Clickable Physics(TM) to your desktop and mobile devices.
-No signup is required, just click [beta.sirepo.com](https://beta.sirepo.com).
+## Sirepo brings computational science to the cloud. 
 
-We currently support the following Clickable Physics(TM) codes:
+Develop, run and share your HPC simulations.
+</p>
 
-[Synchrotron Radiation Workshop](https://beta.sirepo.com/light) (SRW)
+Sirepo brings Clickable Physics(TM) to your desktop and mobile devices. 
 
-SRW computes synchrotron radiation from relativistic electrons in arbitrary magnetic fields and propagates the radiation wavefronts through optical beamlines. SRW is [open source](https://github.com/ochubar/SRW).
+Run Sirepo directly from [our beta site](https://beta.sirepo.com): beta.sirepo.com. 
 
-[Elegant](https://beta.sirepo.com/elegant)
+No signup is required and Sirepo is completely free.
 
-Elegant simulates charged particle accelerators with a [wide range of features](http://www.aps.anl.gov/Accelerator_Systems_Division/Accelerator_Operations_Physics/manuals/elegant_latest/elegant.html), including support for nonlinear optimization and design. Elegant is [freely available](http://www.aps.anl.gov/Accelerator_Systems_Division/Accelerator_Operations_Physics/software.shtml#elegant) and [open source](http://www.aps.anl.gov/epics/license/open.php).
+# .
 
-[Warp](https://beta.sirepo.com/warp#/simulations)
+### If you prefer, Sirepo can also be downloaded! :arrow_down:
+1. Curl Installer
+2. Install with Docker
+3. Install with Vagrant
 
-Warp is a particle-in-cell (PIC) code designed to simulate high-intensity charged particle beams and plasmas in both the electrostatic and electromagnetic regimes, with a wide variety of integrated physics models and diagnostics. At present, Sirepo supports a small subset of Warp’s capabilities. Warp is [open source](https://bitbucket.org/berkeleylab/warp/src) and is part of the [Berkeley Lab Accelerator Simulation Toolkit](http://blast.lbl.gov/BLASTcodes_Warp.html).
-
-Sirepo is currently in beta.
-
+#### Curl Installer
 You can use our
 [curl installer on your Mac, PC (Cygwin only), or Linux box](https://github.com/radiasoft/download/blob/master/README.md)
 as follows:
@@ -35,7 +37,7 @@ For this to work, you will need to [install the prerequisites](https://github.co
 
 [API Documentation is available on Read the Docs.](http://sirepo.readthedocs.org)
 
-### Manual Install with Docker
+#### Manual Install with Docker
 
 You can start Sirepo with [Docker](https://www.docker.com/).
 
@@ -53,7 +55,7 @@ Then visit the following link:
 
 [http://localhost:8000/light](http://localhost:8000/light)
 
-### Manual Install with Vagrant
+#### Manual Install with Vagrant
 
 You can start Sirepo with [Vagrant](https://www.vagrantup.com/).
 
@@ -108,7 +110,7 @@ Then visit the following link:
 [http://localhost:8000/light](http://localhost:8000/light)
 
 
-#### Sharing Folder with Vagrant VM
+##### Sharing Folder with Vagrant VM
 
 Note that if you want to transfer files to the virtual machine,
 you'll need to install the
@@ -119,7 +121,7 @@ and remove the following line from the `Vagrantfile`:
 config.vm.synced_folder ".", "/vagrant", disabled: true
 ```
 
-### Angular Testing
+#### Angular Testing
 
 In order to test, you need to install Xvfb, nodejs (v4+), and google-chrome.
 
@@ -174,7 +176,7 @@ EOF
 yum install -y google-chrome-stable
 ```
 
-#### Karma (Angular unit testing)
+##### Karma (Angular unit testing)
 
 The tests are located in `tests/karma`.
 [Tutorial on karma and jasmine.](https://daveceddia.com/testing-angular-part-1-karma-setup/)
@@ -195,7 +197,7 @@ cd ~/src/radiasoft/sirepo
 ./node_modules/karma/bin/karma start karma-conf.js
 ```
 
-#### Protractor (Angular end-to-end testing)
+##### Protractor (Angular end-to-end testing)
 
 The tests are located in `tests/protractor`.
 [Tutorial on protractor and jasmine.](http://www.protractortest.org/#/tutorial)
@@ -256,7 +258,7 @@ must have X11 running, and start the webdriver this way:
 This will use the `$DISPLAY` forwarded through your ssh session via
 Vagrant.
 
-### Full Stack Development
+#### Full Stack Development
 
 The `sirepo service http` setup is used for basic application development.
 However, if you want to test the full stack workflow, you'll need to start

@@ -12,10 +12,13 @@ from pykern import pkjinja
 from pykern.pkdebug import pkdc, pkdp
 from sirepo import simulation_db
 from sirepo.template import template_common
+import ctypes
 import dicom
 import numpy as np
+import os
 import os.path
 import py.path
+import struct
 import werkzeug
 import zipfile
 
@@ -23,12 +26,19 @@ SIM_TYPE = 'robot'
 
 WANT_BROWSER_FRAME_CACHE = True
 
+_CT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.2'
 _DICOM_DIR = 'dicom'
-_DICOM_MIN_VALUE = -1250
 _DICOM_MAX_VALUE = 2000
+_DICOM_MIN_VALUE = -1250
+_EXPECTED_ORIENTATION = np.array([1, 0, 0, 0, 1, 0])
+_INT_SIZE = ctypes.sizeof(ctypes.c_int)
+_PIXEL_FILE = 'pixels3d.dat'
 _ROI_FILE_NAME = 'rs4pi-roi-data.json'
+_RTSTRUCT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.481.3'
 _TMP_INPUT_FILE_FIELD = 'tmpDicomFilePath'
+_TMP_ZIP_DIR = 'tmp-dicom-files'
 _ZIP_FILE_NAME = 'input.zip'
+
 
 def background_percent_complete(report, run_dir, is_running, schema):
     data_path = run_dir.join(template_common.INPUT_BASE_NAME)
@@ -46,7 +56,9 @@ def background_percent_complete(report, run_dir, is_running, schema):
 
 
 def copy_related_files(data, source_path, target_path):
-    py.path.local(source_path).join(_DICOM_DIR).copy(py.path.local(target_path))
+    #TODO(pjm): copy pixel and roi files
+    #py.path.local(source_path).join(_DICOM_DIR).copy(py.path.local(target_path))
+    pass
 
 
 def fixup_old_data(data):
@@ -55,11 +67,6 @@ def fixup_old_data(data):
 
 def get_animation_name(data):
     return 'animation'
-
-
-def _read_roi_file(sim_id):
-    return simulation_db.read_json(
-        simulation_db.simulation_dir(SIM_TYPE, sim_id).join(_ROI_FILE_NAME))
 
 
 def get_application_data(data):
@@ -73,39 +80,10 @@ def get_simulation_frame(run_dir, data, model_data):
     frame_index = int(data['frameIndex'])
     args = data['animationArgs'].split('_')
     if data['modelName'].startswith('dicomAnimation'):
-        # #series = _find_series_by_number(model_data, args[0])
-        # plan = dicom.read_file(
-        #     _dicom_path(
-        #         model_data['models']['simulation'],
-        #         't' + str(frame_index).zfill(5) + '.json'))
-        #         #series['instances'][frame_index]['filePath']))
-        # pixels = np.int32(plan.pixel_array)
-        # _scale_pixel_data(plan, pixels)
-        # shape = pixels.shape
-        # res = {
-        #     'histogram': _histogram_from_pixels(pixels),
-        #     'pixel_array': pixels.tolist(),
-        #     'shape': shape,
-        #     # mm
-        #     'extents': [pixels.min().tolist(), pixels.max().tolist()],
-        #     'ImagePositionPatient': _float_list(plan.ImagePositionPatient),
-        #     'ImageOrientationPatient': _float_list(plan.ImageOrientationPatient),
-        #     # mm
-        #     'PixelSpacing': _float_list(plan.PixelSpacing),
-        #     # mm
-        #     #'SliceThickness': float(plan.SliceThickness),
-        #     'WindowCenter': int(_first_dicom_value_or_deault(plan, 'WindowCenter', '40')),
-        #     'WindowWidth': int(_first_dicom_value_or_deault(plan, 'WindowWidth', '400')),
-        #     'PatientPosition': plan.PatientPosition,
-        #     'SeriesNumber': plan.SeriesNumber,
-        #     'StudyInstanceUID': plan.StudyInstanceUID,
-        #     'SeriesInstanceUID': plan.SeriesInstanceUID,
-        #     'SOPInstanceUID': plan.SOPInstanceUID,
-        # }
-        # res['domain'] = _calculate_domain(_position_matrix(res), shape)
-        # pkdp('domain: {}', res['domain'])
-        # return res
-        return simulation_db.read_json(_dicom_path(model_data['models']['simulation'], args[0] + str(frame_index).zfill(5)))
+        plane = args[0]
+        res = simulation_db.read_json(_dicom_path(model_data['models']['simulation'], plane, frame_index))
+        res['pixel_array'] = _read_pixel_plane(plane, frame_index, model_data)
+        return res
     raise RuntimeError('{}: unknown simulation frame model'.format(data['modelName']))
 
 
@@ -161,50 +139,103 @@ def write_parameters(data, schema, run_dir, is_parallel):
     pass
 
 
-def _calculate_domain(matrix, shape):
+def _calculate_domain(frame):
+    position = _float_list(frame['ImagePositionPatient'])
+    spacing = frame['PixelSpacing']
+    shape = frame['shape']
     return [
-        np.dot(matrix, [0, 0, 0, 1]).tolist(),
-        np.dot(matrix, [shape[1], shape[0], 0, 1]).tolist(),
+        position,
+        [
+            position[0] + spacing[0] * shape[0],
+            position[1] + spacing[1] * shape[1],
+            position[2],
+        ],
     ]
 
 
-def _dicom_dir(simulation):
-    sim_dir = simulation_db.simulation_dir(SIM_TYPE, simulation['simulationId'])
-    return str(sim_dir.join(_DICOM_DIR))
+def _compute_histogram(simulation, frames):
+    pixels = []
+    for frame in frames:
+        pixels.append(frame['pixels'])
+    histogram = _histogram_from_pixels(pixels)
+    filename = _roi_file(simulation['simulationId'])
+    if os.path.exists(filename):
+        roi_data = _read_roi_file(simulation['simulationId'])
+    else:
+        roi_data = {
+            'models': {
+                'regionsOfInterest': {},
+            },
+        }
+    roi_data['models']['dicomHistogram'] = histogram
+    simulation_db.write_json(filename, roi_data)
 
 
-def _dicom_path(simulation, path):
-    return str(py.path.local(_dicom_dir(simulation)).join(path))
+def _dicom_path(simulation, plane, idx):
+    return str(py.path.local(_sim_file(simulation['simulationId'], _DICOM_DIR)).join(_frame_file_name(plane, idx)))
 
 
-# def _find_series_by_number(data, series_number):
-#     study = data['models']['studies'][0]
-#     for series in study['series']:
-#         if str(series_number) == str(series['number']):
-#             return series
-#     raise RuntimeError('series number not found: {}'.format(series_number))
+def _extract_series_frames(simulation, dicom_dir):
+    #TODO(pjm): give user a choice between multiple study/series if present
+    selected_series = None
+    series_description = ''
+    frames = {}
+    for path in pkio.walk_tree(dicom_dir):
+        if pkio.has_file_extension(str(path), 'dcm'):
+            plan = dicom.read_file(str(path))
+            if plan.SOPClassUID == _RTSTRUCT_DICOM_CLASS:
+                _summarize_rt_structure(simulation, plan)
+            if plan.SOPClassUID != _CT_DICOM_CLASS:
+                continue
+            orientation = _float_list(plan.ImageOrientationPatient)
+            if not (_EXPECTED_ORIENTATION == orientation).all():
+                continue
+            if not selected_series:
+                selected_series = plan.SeriesInstanceUID
+                if hasattr(plan, 'SeriesDescription'):
+                    series_description = plan.SeriesDescription
+            if selected_series != plan.SeriesInstanceUID:
+                continue
+            info = {
+                'pixels': np.int32(plan.pixel_array),
+                'shape': plan.pixel_array.shape,
+                'ImagePositionPatient': _string_list(plan.ImagePositionPatient),
+                'ImageOrientationPatient': _float_list(plan.ImageOrientationPatient),
+                'PixelSpacing': _float_list(plan.PixelSpacing),
+            }
+            for f in ('StudyInstanceUID', 'SeriesInstanceUID', 'SOPInstanceUID'):
+                info[f] = getattr(plan, f)
+            z = float(info['ImagePositionPatient'][2])
+            if z in frames:
+                raise RuntimeError('duplicate frame with z coord: {}'.format(z))
+            _scale_pixel_data(plan, info['pixels'])
+            frames[z] = info
+    if not selected_series:
+        raise RuntimeError('No series found with {} orientation'.format(_EXPECTED_ORIENTATION))
+    res = []
+    for z in sorted(frames.keys()):
+        res.append(frames[z])
+    return series_description, res
 
 
-def _first_dicom_value_or_deault(plan, field, default_value):
-    if hasattr(plan, field):
-        v = getattr(plan, field)
-        if isinstance(v, list):
-            return v[0]
-        return v
-    return default_value
+def _frame_info(count):
+    return {
+        'frameIndex': int(count / 2),
+        'frameCount': count,
+    }
 
 
 def _float_list(ar):
     return map(lambda x: float(x), ar)
 
 
-def _string_list(ar):
-    return map(lambda x: str(x), ar)
+def _frame_file_name(plane, index):
+    return plane + str(index).zfill(5)
 
 
 def _histogram_from_pixels(pixels):
     m = 50
-    extent = [pixels.min(), pixels.max()]
+    extent = [np.array(pixels).min(), np.array(pixels).max()]
     if extent[0] < _DICOM_MIN_VALUE:
         extent[0] = _DICOM_MIN_VALUE
     if extent[1] > _DICOM_MAX_VALUE:
@@ -243,25 +274,66 @@ def _move_import_file(data):
     path = sim[_TMP_INPUT_FILE_FIELD]
     del sim[_TMP_INPUT_FILE_FIELD]
     if os.path.exists(path):
-        zip_path = _zip_path(sim)
+        zip_path = _sim_file(sim['simulationId'], _ZIP_FILE_NAME)
         os.rename(path, zip_path)
         pkio.unchecked_remove(os.path.dirname(path))
-        dicom_dir = _dicom_dir(sim)
-        zipfile.ZipFile(zip_path).extractall(dicom_dir)
-        _summarize_dicom_files(data, dicom_dir)
-        simulation_db.save_simulation_json(SIM_TYPE, data)
+        tmp_dir = _sim_file(sim['simulationId'], _TMP_ZIP_DIR)
+        zipfile.ZipFile(zip_path).extractall(tmp_dir)
+        _summarize_dicom_files(data, tmp_dir)
+        pkio.unchecked_remove(tmp_dir)
+        simulation_db.save_simulation_json(data)
 
 
-def _position_matrix(data):
-    orientation = data['ImageOrientationPatient']
-    spacing = data['PixelSpacing']
-    position = _float_list(data['ImagePositionPatient'])
-    return [
-        [orientation[0] * spacing[0], orientation[3] * spacing[1], 0, position[0]],
-        [orientation[1] * spacing[0], orientation[4] * spacing[1], 0, position[1]],
-        [orientation[2] * spacing[0], orientation[5] * spacing[1], 0, position[2]],
-        [0, 0, 0, 1],
-    ]
+def _pixel_filename(simulation):
+    return _sim_file(simulation['simulationId'], _PIXEL_FILE)
+
+
+def _read_pixel_plane(plane, idx, data):
+    plane_info = data['models']['dicomSeries']['planes']
+    size = [plane_info['c']['frameCount'], plane_info['s']['frameCount'], plane_info['t']['frameCount']]
+    frame = []
+    # pixels = np.array(all_frame_pixels)[:, idx]
+    # pixels = np.array(all_frame_pixels)[:, :, idx]
+    with open (_pixel_filename(data['models']['simulation']), 'rb') as f:
+        if plane == 't':
+            if idx > 0:
+                f.seek(idx * _INT_SIZE * size[0] * size[1], 1)
+            for r in range(size[1]):
+                row = []
+                frame.append(row)
+                for v in range(size[0]):
+                    row.append(struct.unpack('i', f.read(_INT_SIZE))[0])
+        elif plane == 'c':
+            if idx > 0:
+                f.seek(idx * _INT_SIZE * size[0], 1)
+            for r in range(size[2]):
+                row = []
+                frame.append(row)
+                for v in range(size[0]):
+                    row.append(struct.unpack('i', f.read(_INT_SIZE))[0])
+                f.seek(_INT_SIZE * (size[0] - 1) * size[1], 1)
+            frame = np.flipud(frame).tolist()
+        elif plane == 's':
+            if idx > 0:
+                f.seek(idx * _INT_SIZE, 1)
+            for r in range(size[2]):
+                row = []
+                frame.append(row)
+                for v in range(size[1]):
+                    row.append(struct.unpack('i', f.read(_INT_SIZE))[0])
+                    f.seek(_INT_SIZE * (size[0] - 1), 1)
+            frame = np.flipud(frame).tolist()
+        else:
+            raise RuntimeError('plane not supported: {}'.format(plane))
+    return frame
+
+
+def _read_roi_file(sim_id):
+    return simulation_db.read_json(_roi_file(sim_id))
+
+
+def _roi_file(sim_id):
+    return _sim_file(sim_id, _ROI_FILE_NAME)
 
 
 def _scale_pixel_data(plan, pixels):
@@ -274,203 +346,96 @@ def _scale_pixel_data(plan, pixels):
     if 'RescaleIntercept' in plan and plan.RescaleIntercept != offset:
         offset = plan.RescaleIntercept
         scale_required = True
-    #data = plan.pixel_array
-    #pkdp('data dtype: {}', pixels.dtype)
     if scale_required:
         pixels *= slope
         pixels += offset
-    return
 
-CT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.2'
-RTSTRUCT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.481.3'
-_EXPECTED_ORIENTATION = np.array([1, 0, 0, 0, 1, 0])
+
+def _sim_file(sim_id, filename):
+    return str(simulation_db.simulation_dir(SIM_TYPE, sim_id).join(filename))
+
+
+def _string_list(ar):
+    return map(lambda x: str(x), ar)
+
 
 def _summarize_dicom_files(data, dicom_dir):
-    dicomFrames = []
-    for path in pkio.walk_tree(dicom_dir):
-        if pkio.has_file_extension(str(path), 'dcm'):
-            plan = dicom.read_file(str(path))
-            if plan.SOPClassUID == RTSTRUCT_DICOM_CLASS:
-                #pkdp('import dicom rt struct')
-                _summarize_rt_structure(data['models']['simulation'], plan)
-                #pkdp('done import dicom rt struct')
-            if plan.SOPClassUID != CT_DICOM_CLASS:
-                continue
-            orientation = _float_list(plan.ImageOrientationPatient)
-            if not (_EXPECTED_ORIENTATION == orientation).all():
-                continue
-            #pkdp('import dicom ct')
-            m = {
-                'path': path,
-                'plan': plan,
-            }
-            for f in ('StudyInstanceUID', 'StudyDescription', 'SeriesInstanceUID', 'SeriesDescription', 'SeriesNumber', 'SOPInstanceUID', 'InstanceNumber', 'ImagePositionPatient'):
-                if hasattr(plan, f):
-                    #TODO(pjm): need a required and optional list
-                    m[f] = getattr(plan, f)
-                else:
-                    m[f] = ''
-            dicomFrames.append(m)
-
-    studies = {}
-    for f in dicomFrames:
-        if f['StudyInstanceUID'] not in studies:
-            studies[f['StudyInstanceUID']] = {}
-        series = studies[f['StudyInstanceUID']]
-        if f['SeriesInstanceUID'] not in series:
-            series[f['SeriesInstanceUID']] = []
-        series[f['SeriesInstanceUID']].append(f)
-        # if isRTStructureByZPosition:
-        #     z_position = f['ImagePositionPatient'][2]
-        #     #pkdp('z_position: {}', z_position)
-        #     regions = data.models.regionsOfInterest
-        #     keys = regions.keys()
-        #     for k in keys:
-        #         value = regions[k]
-        #         if z_position in value['contour']:
-        #             pkdp('remap z to uid: {} -> {}', z_position, f['SOPInstanceUID'])
-        #             value['contour'][f['SOPInstanceUID']] = value['contour'][z_position]
-        #             del value['contour'][z_position]
-
-
-    if not len(studies.keys()):
-        raise RuntimeError('No series found with {} orientation'.format(_EXPECTED_ORIENTATION))
-    res = []
-
-    for study_id in studies:
-        study = None
-        for series_id in studies[study_id]:
-            series = None
-            for f in sorted(studies[study_id][series_id], key=lambda frame: frame['InstanceNumber']):
-                if not study:
-                    study = {
-                        'description': f['StudyDescription'],
-                        'series': [],
-                    }
-                    res.append(study)
-                assert study['description'] == f['StudyDescription']
-                if not series:
-                    series = {
-                        'description': f['SeriesDescription'],
-                        'number': f['SeriesNumber'],
-                        'instances': [],
-                    }
-                    study['series'].append(series)
-                assert series['description'] == f['SeriesDescription']
-                assert series['number'] == f['SeriesNumber']
-                series['instances'].append({
-                    'filePath': f['path'],
-                    'plan': f['plan'],
-                })
-    #TODO(pjm): give user a choice between multiple study/series if present
-    series = res[0]['series'][0]
-    all_pixels = _summarize_dicom_series(data['models']['simulation'], series)
+    simulation = data['models']['simulation']
+    series_description, frames = _extract_series_frames(simulation, dicom_dir)
+    _summarize_dicom_series(simulation, frames)
+    with open (_pixel_filename(simulation), 'wb') as f:
+        for frame in frames:
+            frame['pixels'].tofile(f)
     data['models']['dicomSeries'] = {
-        'description': series['description'],
+        'description': series_description,
         'planes': {
-            't': {
-                'frameIndex': 0,
-                'frameCount': len(all_pixels),
-            },
-            's': {
-                'frameIndex': 0,
-                'frameCount': len(all_pixels[0]),
-            },
-            'c': {
-                'frameIndex': 0,
-                'frameCount': len(all_pixels[0]),
-            },
+            't': _frame_info(len(frames)),
+            's': _frame_info(len(frames[0]['pixels'])),
+            'c': _frame_info(len(frames[0]['pixels'][0])),
         }
     }
-    all_histogram = _histogram_from_pixels(all_pixels)
-    pkdp(all_histogram)
-    simulation = data['models']['simulation']
-    filename = str(simulation_db.simulation_dir(SIM_TYPE, simulation['simulationId']).join(_ROI_FILE_NAME))
-    if os.path.exists(filename):
-        roi_data = _read_roi_file(simulation['simulationId'])
-    else:
-        roi_data = {
-            'models': {
-                'regionsOfInterest': {},
-            },
-        }
-    roi_data['models']['dicomHistogram'] = all_histogram
-    simulation_db.write_json(filename, roi_data)
-
-    # data['models']['studies'] = res
-    # if res[0]['description']:
-    #     data['models']['simulation']['name'] = res[0]['description']
-    # data['models']['dicomAnimation']['seriesNumber'] = res[0]['series'][0]['number']
-    # data['models']['dicomAnimation2']['seriesNumber'] = res[0]['series'][0]['number']
+    _compute_histogram(simulation, frames)
 
 
-def _summarize_dicom_series(simulation, series):
+def _summarize_dicom_series(simulation, frames):
     idx = 0
-    all_frame_pixels = []
-    first_pos = None
-    last_pos = None
-    last_res = None
-    for instance in series['instances']:
-        #pkdp('filepath: {}'.format(instance['filePath']))
-        plan = instance['plan']
-        pixels = np.int32(plan.pixel_array)
-        _scale_pixel_data(plan, pixels)
-        all_frame_pixels.append(pixels)
-        shape = pixels.shape
+    z_space = abs(float(frames[0]['ImagePositionPatient'][2]) - float(frames[1]['ImagePositionPatient'][2]))
+    os.mkdir(_sim_file(simulation['simulationId'], _DICOM_DIR))
+    for frame in frames:
         res = {
-            'pixel_array': pixels.tolist(),
-            'shape': shape,
-            'ImagePositionPatient': _string_list(plan.ImagePositionPatient),
-            'ImageOrientationPatient': _float_list(plan.ImageOrientationPatient),
-            'PixelSpacing': _float_list(plan.PixelSpacing),
+            'shape': frame['shape'],
+            'ImagePositionPatient': frame['ImagePositionPatient'],
+            'PixelSpacing': frame['PixelSpacing'],
+            'domain': _calculate_domain(frame),
         }
-        res['domain'] = _calculate_domain(_position_matrix(res), shape)
-        if not first_pos:
-            first_pos = res['domain']
-        last_pos = res['domain']
-        last_res = res
-        filename = _dicom_path(simulation, 't' + str(idx).zfill(5))
+        filename = _dicom_path(simulation, 't', idx)
         simulation_db.write_json(filename, res)
         idx += 1
 
-    for idx in range(len(all_frame_pixels[0])):
-        pixels = np.array(all_frame_pixels)[:, idx]
-        shape = pixels.shape
-        res = {
-            'pixel_array': np.flipud(pixels).tolist(),
-            'shape': shape,
-            'ImagePositionPatient': [res['ImagePositionPatient'][0], res['ImagePositionPatient'][1], str(idx * res['PixelSpacing'][0])],
-            'ImageOrientationPatient': res['ImageOrientationPatient'],
-            #TODO(pjm): determin from distance between frames
-            'PixelSpacing': [res['PixelSpacing'][0], 1.50217533112],
-        }
-        res['domain'] = _calculate_domain(_position_matrix(res), shape)
-        if not first_pos:
-            first_pos = res['domain']
-        last_pos = res['domain']
-        filename = _dicom_path(simulation, 'c' + str(idx).zfill(5))
+    frame0 = frames[0]
+    shape = [
+        len(frames),
+        len(frame0['pixels'][0]),
+    ]
+    res = {
+        'shape': shape,
+        'ImagePositionPatient': [
+            frame0['ImagePositionPatient'][0],
+            frame0['ImagePositionPatient'][2],
+            frame0['ImagePositionPatient'][1],
+        ],
+        'PixelSpacing': [
+            frame0['PixelSpacing'][0],
+            z_space,
+        ],
+    }
+    for idx in range(len(frame0['pixels'][0])):
+        res['ImagePositionPatient'][2] = str(float(frame0['ImagePositionPatient'][1]) + idx * float(frame0['PixelSpacing'][0]))
+        res['domain'] = _calculate_domain(res)
+        filename = _dicom_path(simulation, 'c', idx)
         simulation_db.write_json(filename, res)
 
-    #TODO(pjm): refactor into one common method
-    for idx in range(len(all_frame_pixels[0])):
-        pixels = np.array(all_frame_pixels)[:, :, idx]
-        shape = pixels.shape
-        res = {
-            'pixel_array': np.flipud(pixels).tolist(),
-            'shape': shape,
-            'ImagePositionPatient': [res['ImagePositionPatient'][0], res['ImagePositionPatient'][1], str(idx * res['PixelSpacing'][0])],
-            'ImageOrientationPatient': res['ImageOrientationPatient'],
-            #TODO(pjm): fix this, as above
-            'PixelSpacing': [res['PixelSpacing'][0], 1.50217533112],
-        }
-        res['domain'] = _calculate_domain(_position_matrix(res), shape)
-        if not first_pos:
-            first_pos = res['domain']
-        last_pos = res['domain']
-        filename = _dicom_path(simulation, 's' + str(idx).zfill(5))
+    shape = [
+        len(frames),
+        len(frame0['pixels'][1]),
+    ]
+    res = {
+        'shape': shape,
+        'ImagePositionPatient': [
+            frame0['ImagePositionPatient'][1],
+            frame0['ImagePositionPatient'][2],
+            frame0['ImagePositionPatient'][0],
+        ],
+        'PixelSpacing': [
+            frame0['PixelSpacing'][0],
+            z_space,
+        ],
+    }
+    for idx in range(len(frame0['pixels'][0])):
+        res['ImagePositionPatient'][2] = str(float(frame0['ImagePositionPatient'][0]) + idx * float(frame0['PixelSpacing'][1]))
+        res['domain'] = _calculate_domain(res)
+        filename = _dicom_path(simulation, 's', idx)
         simulation_db.write_json(filename, res)
-
-    return np.array(all_frame_pixels)
 
 
 def _summarize_rt_structure(simulation, plan):
@@ -503,10 +468,4 @@ def _summarize_rt_structure(simulation, plan):
                 if ct_id not in roi['contour']:
                     roi['contour'][ct_id] = []
                 roi['contour'][ct_id].append(contour_data)
-    filename = str(simulation_db.simulation_dir(SIM_TYPE, simulation['simulationId']).join(_ROI_FILE_NAME))
-    simulation_db.write_json(filename, data)
-
-
-def _zip_path(simulation):
-    sim_dir = simulation_db.simulation_dir(SIM_TYPE, simulation['simulationId'])
-    return str(sim_dir.join(_ZIP_FILE_NAME))
+    simulation_db.write_json(_roi_file(simulation['simulationId']), data)

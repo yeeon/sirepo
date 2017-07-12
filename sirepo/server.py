@@ -18,6 +18,7 @@ import flask
 import flask.sessions
 import glob
 import os
+import os.path
 import py.path
 import re
 import sirepo.template
@@ -32,6 +33,9 @@ _BEAKER_DATA_DIR = 'beaker'
 
 #: where users live under db_dir
 _BEAKER_LOCK_DIR = 'lock'
+
+#: Relative to current directory only in test mode
+_DEFAULT_DB_SUBDIR = 'run'
 
 #: What's the key in environ for the session
 _ENVIRON_KEY_BEAKER = 'beaker.session'
@@ -76,10 +80,13 @@ def api_copyNonSessionSimulation():
     sim_type = req['simulationType']
     global_path = simulation_db.find_global_simulation(sim_type, req['simulationId'])
     if global_path:
-        data = simulation_db.open_json_file(sim_type, os.path.join(global_path, simulation_db.SIMULATION_DATA_FILE))
+        data = simulation_db.open_json_file(
+            sim_type,
+            os.path.join(global_path, simulation_db.SIMULATION_DATA_FILE),
+        )
         data['models']['simulation']['isExample'] = False
         data['models']['simulation']['outOfSessionSimulationId'] = req['simulationId']
-        res = _save_new_and_reply(sim_type, data)
+        res = _save_new_and_reply(data)
         sirepo.template.import_module(data).copy_related_files(data, global_path, str(simulation_db.simulation_dir(sim_type, simulation_db.parse_sid(data))))
         return res
     werkzeug.exceptions.abort(404)
@@ -105,7 +112,7 @@ def api_copySimulation():
     data['models']['simulation']['name'] = name
     data['models']['simulation']['isExample'] = False
     data['models']['simulation']['outOfSessionSimulationId'] = ''
-    return _save_new_and_reply(sim_type, data)
+    return _save_new_and_reply(data)
 app_copy_simulation = api_copySimulation
 
 
@@ -118,7 +125,7 @@ app_delete_simulation = api_deleteSimulation
 
 def api_downloadDataFile(simulation_type, simulation_id, model, frame, suffix=None):
     data = {
-        'simulationType': simulation_type,
+        'simulationType': sirepo.template.assert_sim_type(simulation_type),
         'simulationId': simulation_id,
         'modelName': model,
     }
@@ -223,7 +230,7 @@ def api_findByName(simulation_type, application_mode, simulation_name):
     if len(rows) == 0:
         for s in simulation_db.examples(simulation_type):
             if s['models']['simulation']['name'] == simulation_name:
-                simulation_db.save_new_example(simulation_type, s)
+                simulation_db.save_new_example(s)
                 rows = simulation_db.iterate_simulation_datafiles(simulation_type, simulation_db.process_simulation_list, {
                     'simulation.name': simulation_name,
                 })
@@ -320,7 +327,7 @@ def api_importFile(simulation_type=None):
             )
         #TODO(robnagler) need to validate folder
         data.models.simulation.folder = flask.request.form['folder']
-        return _save_new_and_reply(data.simulationType, data)
+        return _save_new_and_reply(data)
     except Exception as e:
         pkdlog('{}: exception: {}', f and f.filename, pkdexc())
         error = e.message if hasattr(e, 'message') else str(e)
@@ -342,7 +349,7 @@ def api_newSimulation():
     data['models']['simulation']['name'] = new_simulation_data['name']
     data['models']['simulation']['folder'] = new_simulation_data['folder']
     sirepo.template.import_module(sim_type).new_simulation(data, new_simulation_data)
-    return _save_new_and_reply(sim_type, data)
+    return _save_new_and_reply(data)
 app_new_simulation = api_newSimulation
 
 
@@ -394,6 +401,10 @@ def api_root(simulation_type):
     try:
         sirepo.template.assert_sim_type(simulation_type)
     except AssertionError:
+        if simulation_type == 'warp':
+            return flask.redirect('/warppba', code=301)
+        if simulation_type == 'fete':
+            return flask.redirect('/warpvnd', code=301)
         pkdlog('{}: uri not found', simulation_type)
         werkzeug.exceptions.abort(404)
     if cfg.oauth_login:
@@ -461,7 +472,6 @@ def api_saveSimulationData():
         return res
     simulation_type = data['simulationType']
     data = simulation_db.save_simulation_json(
-        simulation_type,
         sirepo.template.import_module(simulation_type).prepare_for_save(data),
     )
     return app_simulation_data(
@@ -530,7 +540,7 @@ app_simulation_list = api_listSimulations
 
 
 def api_simulationSchema():
-    sim_type = flask.request.form['simulationType']
+    sim_type = sirepo.template.assert_sim_type(flask.request.form['simulationType'])
     return _json_response(simulation_db.get_schema(sim_type))
 app_simulation_schema = api_simulationSchema
 
@@ -555,7 +565,7 @@ def api_updateFolder():
         folder = row['models']['simulation']['folder']
         if folder.startswith(old_name):
             row['models']['simulation']['folder'] = re.sub(re.escape(old_name), new_name, folder, 1)
-            simulation_db.save_simulation_json(data['simulationType'], row)
+            simulation_db.save_simulation_json(row)
     return _json_response_ok()
 app_update_folder = api_updateFolder
 
@@ -593,6 +603,18 @@ def api_uploadFile(simulation_type, simulation_id, file_type):
 app_upload_file = api_uploadFile
 
 
+def all_uids():
+    """List of all users
+
+    Returns:
+        set: set of all uids
+    """
+    if not cfg.oauth_login:
+        return set()
+    from sirepo import oauth
+    return oauth.all_uids(app)
+
+
 def clear_session_user():
     """Remove the current user from the flask session.
     """
@@ -600,15 +622,20 @@ def clear_session_user():
         del flask.session[_SESSION_KEY_USER]
 
 
-def init(db_dir, uwsgi=None):
+def init(db_dir=None, uwsgi=None):
     """Initialize globals and populate simulation dir"""
     from sirepo import uri_router
 
+    if db_dir:
+        cfg.db_dir = py.path.local(db_dir)
+    else:
+        db_dir = cfg.db_dir
     uri_router.init(app, sys.modules[__name__], simulation_db)
     global _wsgi_app
     _wsgi_app = _WSGIApp(app, uwsgi)
-    _BeakerSession().sirepo_init_app(app, py.path.local(db_dir))
+    _BeakerSession().sirepo_init_app(app, db_dir)
     simulation_db.init_by_server(app, sys.modules[__name__])
+    return app
 
 
 def javascript_redirect(redirect_uri):
@@ -725,6 +752,31 @@ def _as_attachment(response, content_type, filename):
 
 
 @pkconfig.parse_none
+def _cfg_db_dir(value):
+    """Config value or root package's parent or cwd with _DEFAULT_SUBDIR"""
+    from pykern import pkinspect
+
+    if value:
+        assert os.path.isabs(value), \
+            '{}: SIREPO_SERVER_DB_DIR must be absolute'.format(value)
+        assert os.path.isdir(value), \
+            '{}: SIREPO_SERVER_DB_DIR must be a directory and exist'.format(value)
+        value = py.path.local(value)
+    else:
+        assert pkconfig.channel_in('dev'), \
+            'SIREPO_SERVER_DB_DIR must be configured except in DEV'
+        fn = sys.modules[pkinspect.root_package(_cfg_db_dir)].__file__
+        root = py.path.local(py.path.local(py.path.local(fn).dirname).dirname)
+        # Check to see if we are in our dev directory. This is a hack,
+        # but should be reliable.
+        if not root.join('requirements.txt').check():
+            # Don't run from an install directory
+            root = py.path.local('.')
+        value = pkio.mkdir_parent(root.join(_DEFAULT_DB_SUBDIR))
+    return value
+
+
+@pkconfig.parse_none
 def _cfg_session_secret(value):
     """Reads file specified as config value"""
     if not value:
@@ -740,7 +792,7 @@ def _cfg_time_limit(value):
     return v
 
 
-def _json_input():
+def _json_input(assert_sim_type=True):
     req = flask.request
     if req.mimetype != 'application/json':
         pkdlog('{}: req.mimetype is not application/json', req.mimetype)
@@ -752,7 +804,10 @@ def _json_input():
     # and strict in what we send out.
     charset = req.mimetype_params.get('charset')
     data = req.get_data(cache=False)
-    return simulation_db.json_load(data, encoding=charset)
+    res = simulation_db.json_load(data, encoding=charset)
+    if assert_sim_type and 'simulationType' in res:
+        res.simulationType = sirepo.template.assert_sim_type(res.simulationType)
+    return res
 
 
 def _json_response(value, pretty=False):
@@ -800,7 +855,7 @@ def _no_cache(response):
 
 
 def _parse_data_input(validate=False):
-    data = _json_input()
+    data = _json_input(assert_sim_type=False)
     return simulation_db.fixup_old_data(data)[0] if validate else data
 
 
@@ -994,6 +1049,7 @@ cfg = pkconfig.init(
         secret=(None, _cfg_session_secret, 'Beaker: Used with the HMAC to ensure session integrity'),
         secure=(False, bool, 'Beaker: Whether or not the session cookie should be marked as secure'),
     ),
+    db_dir=(None, _cfg_db_dir, 'where database resides'),
     job_queue=('Background', runner.cfg_job_queue, 'how to run long tasks: Celery or Background'),
     foreground_time_limit=(5 * 60, _cfg_time_limit, 'timeout for short (foreground) tasks'),
     oauth_login=(False, bool, 'OAUTH: enable login'),

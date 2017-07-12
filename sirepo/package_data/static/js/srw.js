@@ -591,6 +591,9 @@ SIREPO.app.controller('SRWSourceController', function (appState, panelState, req
                 ebeam_position: appState.clone(appState.models.electronBeamPosition),
             },
             function(data) {
+                if (! appState.isLoaded()) {
+                    return;
+                }
                 var ebeam = appState.models.electronBeam;
                 ['rmsSizeX', 'rmsDivergX', 'xxprX', 'rmsSizeY', 'rmsDivergY', 'xxprY'].forEach(function(f) {
                     ebeam[f] = formatFloat(data[f]);
@@ -643,6 +646,9 @@ SIREPO.app.controller('SRWSourceController', function (appState, panelState, req
                 undulator_type: appState.models.tabulatedUndulator.undulatorType,
             },
             function(data) {
+                if (! appState.isLoaded()) {
+                    return;
+                }
                 appState.models[reportName].magneticField = data.magneticField;
                 panelState.enableField(reportName, 'magneticField', false);
             }
@@ -696,6 +702,9 @@ SIREPO.app.controller('SRWSourceController', function (appState, panelState, req
                 undulator_period: appState.models.undulator.period / 1000,
             },
             function(data) {
+                if (! appState.isLoaded()) {
+                    return;
+                }
                 if (undulatorDefinition === 'K') {
                     appState.models.undulator.verticalAmplitude = formatFloat(data.vertical_amplitude);
                 }
@@ -781,10 +790,18 @@ SIREPO.app.controller('SRWSourceController', function (appState, panelState, req
         var tag = $($("div[data-model-name='" + modelName + "']").find('.sr-panel-heading')[0]);
         // var distance = tag.text().split(',')[1];
         var distance = appState.models[modelName].distanceFromSource + 'm';
-        var repName = SIREPO.APP_SCHEMA.view[modelName].title.replace(
-            'Flux',
-            SIREPO.APP_SCHEMA.enum.Flux[appState.models[modelName].fluxType-1][1]
-        ) + ', ' + distance;
+        var fluxType = SIREPO.APP_SCHEMA.enum.Flux[appState.models[modelName].fluxType-1][1];
+        var title = SIREPO.APP_SCHEMA.view[modelName].title;
+        var repName;
+        if (fluxType !== 'Flux') {
+            repName = title.replace(
+                'Flux',
+                fluxType
+            ) + ' for Finite Emittance Electron Beam';
+        } else {
+            repName = title + ' Report';
+        }
+        repName += ', ' + distance;
         tag.text(repName);
     }
 
@@ -815,6 +832,9 @@ SIREPO.app.controller('SRWSourceController', function (appState, panelState, req
                 tabulated_undulator: appState.models.tabulatedUndulator,
             },
             function(data) {
+                if (! appState.isLoaded()) {
+                    return;
+                }
                 appState.models.tabulatedUndulator.length = data.length;
             }
         );
@@ -1474,8 +1494,8 @@ SIREPO.app.directive('simulationStatusPanel', function(frameCache, persistentSim
             };
 
             persistentSimulation.initProperties($scope, $scope, {
-                multiElectronAnimation: [],
-                fluxAnimation: ['fluxType'],
+                multiElectronAnimation: [SIREPO.ANIMATION_ARGS_VERSION + '1'],
+                fluxAnimation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'fluxType'],
             });
             $scope.$on($scope.model + '.changed', function() {
                 if ($scope.isReadyForModelChanges) {
