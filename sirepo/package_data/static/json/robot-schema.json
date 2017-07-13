@@ -11,6 +11,14 @@
             "dicomPlane": ["Plane", "DicomPlane"],
             "frameIndex": ["Frame Index", "Integer"]
         },
+        "dicomAnimation2": {
+            "dicomPlane": ["Plane", "DicomPlane"],
+            "frameIndex": ["Frame Index", "Integer"]
+        },
+        "dicomAnimation3": {
+            "dicomPlane": ["Plane", "DicomPlane"],
+            "frameIndex": ["Frame Index", "Integer"]
+        },
         "dicomSeries": {
             "description": ["Series Description", "String"]
         },

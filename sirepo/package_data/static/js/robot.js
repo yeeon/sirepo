@@ -65,7 +65,7 @@ SIREPO.app.controller('RobotSourceController', function (appState, frameCache, p
         if (! series) {
             return;
         }
-        var enumText = ''
+        var enumText = '';
         var plane = appState.models.dicomAnimation.dicomPlane;
         SIREPO.APP_SCHEMA.enum.DicomPlane.forEach(function(enumInfo) {
             if (enumInfo[0] == plane) {
@@ -95,6 +95,8 @@ SIREPO.app.controller('RobotSourceController', function (appState, frameCache, p
 
     persistentSimulation.initProperties(self, $scope, {
         dicomAnimation: ['dicomPlane', 'startTime'],
+        dicomAnimation2: ['dicomPlane', 'startTime'],
+        dicomAnimation3: ['dicomPlane', 'startTime'],
     });
 
     $scope.$on('dicomLoaded', function(event, dicomData) {
@@ -307,7 +309,7 @@ SIREPO.app.directive('dicomHistogram', function(appState, plotting, robotService
                 if (brush.empty()) {
                     svg.selectAll(".bar rect").style("opacity", "1");
                     return;
-                };
+                }
                 var b = brush.extent();
                 svg.selectAll(".bar rect").style("opacity", function(d, i) {
                     return d.x + d.dx/2.0 > b[0] && d.x + d.dx/2.0 < b[1] ? "1" : ".4";
@@ -373,7 +375,7 @@ SIREPO.app.directive('dicomHistogram', function(appState, plotting, robotService
                         y: dicomHistogram.histogram[idx++],
                     };
                 });
-                yScale.domain([0, d3.max(bins, function(d){return d.y})]).nice();
+                yScale.domain([0, d3.max(bins, function(d){return d.y;})]).nice();
                 plotg.selectAll(".bar").remove();
                 var bar = plotg.selectAll(".bar")
                     .data(bins)
@@ -387,7 +389,7 @@ SIREPO.app.directive('dicomHistogram', function(appState, plotting, robotService
                     .call(brush);
                 brushg.selectAll(".resize").append("path");
                 $scope.resize();
-            }
+            };
 
             $scope.resize = function() {
                 if (plotg.select('.bar').empty()) {
@@ -444,18 +446,20 @@ SIREPO.app.directive('dicomHistogram', function(appState, plotting, robotService
     };
 });
 
-//TODO(pjm): consolidate plot code with plotting service
-SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robotService, $interval, $rootScope) {
+SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plotting, robotService, $interval, $rootScope) {
     return {
         restrict: 'A',
         scope: {
             modelName: '@',
+            isSubFrame: '@',
         },
         templateUrl: '/static/html/dicom.html' + SIREPO.SOURCE_CACHE_KEY,
         controller: function($scope) {
-            $scope.isClientOnly = true;
+            // $scope.isClientOnly = true;
 
-            $scope.margin = {top: 15, left: 60, right: 30, bottom: 30};
+            $scope.margin = $scope.isSubFrame
+                ? {top: 0, left: 10, right: 10, bottom: 0}
+                : {top: 15, left: 60, right: 30, bottom: 30};
             // will be set to the correct size in resize()
             $scope.canvasSize = 0;
             $scope.canvasHeight = 0;
@@ -466,16 +470,21 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
             // zoom or advanceFrame
             $scope.zoomMode = 'advanceFrame';
             var frameScale;
+            $scope.requestCache = {};
+            var inRequest = false;
+            var oldDicomWindow = null;
+            var colorScale;
+            var heatmap;
 
             function addContours() {
                 select().selectAll('.polygons polygon').remove();
                 var ymax = yValues[yValues.length - 1];
                 var rois = robotService.getROIPoints();
-                var found = [];
+                // var found = [];
                 Object.keys(rois).forEach(function(roiNumber) {
                     var roi = rois[roiNumber];
                     if (roi.contour && roi.contour[frameId]) {
-                        found.push(roi.name);
+                        // found.push(roi.name);
                         roi.contour[frameId].forEach(function(contourData) {
                             var d = [];
                             for (var i = 0; i < contourData.length; i += 2) {
@@ -494,9 +503,9 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                         });
                     }
                 });
-                if (found.length) {
-                    //console.log('found:', found.join(' '));
-                }
+                // if (found.length) {
+                //     console.log('found:', found.join(' '));
+                // }
             }
 
             function advanceFrame() {
@@ -519,13 +528,13 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 });
             }
 
-            function roiStyle(roi, roiNumber) {
-                var color = roi.color;
-                var res = 'stroke: rgb(' + color.join(',') + ')';
-                if (appState.models.dicomSeries.activeRoiNumber == roiNumber) {
-                    res += '; fill: rgb(' + color.join(',') + '); fill-opacity: 0.5';
-                }
-                return res;
+            function clearCache() {
+                $scope.requestCache = {};
+                colorScale = null;
+            }
+
+            function dicomWindowChanged() {
+                return !(oldDicomWindow && appState.deepEquals(oldDicomWindow, appState.models.dicomWindow));
             }
 
             function getRange(values) {
@@ -534,6 +543,47 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
 
             function getSize(values) {
                 return values[values.length - 1] - values[0];
+            }
+
+            function initColormap() {
+                if (! colorScale) {
+                    var dicomWindow = appState.models.dicomWindow;
+                    var zMin = dicomWindow.center - dicomWindow.width / 2;
+                    var zMax = dicomWindow.center + dicomWindow.width / 2;
+                    var colorRange = [0, 255];
+                    colorScale = d3.scale.linear()
+                        .domain(plotting.linspace(zMin, zMax, colorRange.length))
+                        .rangeRound(colorRange)
+                        .clamp(true);
+                }
+            }
+
+            function initImage() {
+                var xSize = heatmap[0].length;
+                var ySize = heatmap.length;
+                var img = imageData;
+
+                for (var yi = 0, p = -1; yi < ySize; ++yi) {
+                    for (var xi = 0; xi < xSize; ++xi) {
+                        var c = colorScale(heatmap[yi][xi]);
+                        img.data[++p] = c;
+                        img.data[++p] = c;
+                        img.data[++p] = c;
+                        img.data[++p] = 0xff;
+                    }
+                }
+                cacheCanvas.getContext('2d').putImageData(img, 0, 0);
+                return colorScale;
+            }
+
+            function loadImage() {
+                oldDicomWindow = appState.clone(appState.models.dicomWindow);
+                if (! heatmap) {
+                    console.log('no heatmap');
+                    return;
+                }
+                initColormap();
+                initImage();
             }
 
             function refresh() {
@@ -572,6 +622,15 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 }
             }
 
+            function roiStyle(roi, roiNumber) {
+                var color = roi.color;
+                var res = 'stroke: rgb(' + color.join(',') + ')';
+                if (appState.models.dicomSeries.activeRoiNumber == roiNumber) {
+                    res += '; fill: rgb(' + color.join(',') + '); fill-opacity: 0.5';
+                }
+                return res;
+            }
+
             function select(selector) {
                 var e = d3.select($scope.element);
                 return selector ? e.select(selector) : e;
@@ -583,9 +642,22 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 appState.saveQuietly('dicomSeries');
             }
 
+            function updateSelectedDicomPlane(plane) {
+                selectedDicomPlane = plane;
+                var planeInfo = appState.models.dicomSeries.planes[selectedDicomPlane];
+                //console.log(planeInfo);
+                frameCache.setCurrentFrame($scope.modelName, planeInfo.frameIndex);
+                frameCache.setFrameCount(planeInfo.frameCount, $scope.modelName);
+            }
+
             $scope.destroy = function() {
                 zoom.on('zoom', null);
                 //imageObj.onload = null;
+            };
+
+            $scope.getDefaultFrame = function() {
+                var model = appState.models[$scope.modelName];
+                return appState.models.dicomSeries.planes[model.dicomPlane].frameIndex || 0;
             };
 
             $scope.init = function() {
@@ -627,70 +699,10 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 heatmap = json.pixel_array;
                 loadImage();
                 $scope.resize();
-                $rootScope.$broadcast('dicomLoaded', json);
-            }
-
-            var heatmap;
-
-            function loadImage() {
-                oldDicomWindow = appState.clone(appState.models.dicomWindow);
-                if (! heatmap) {
-                    console.log('no heatmap');
-                    return;
+                if (! $scope.isSubFrame) {
+                    $rootScope.$broadcast('dicomLoaded', json);
                 }
-                initColormap();
-                initImage();
-            }
-
-            function initColormap() {
-                if (! colorScale) {
-                    var dicomWindow = appState.models.dicomWindow;
-                    var zMin = dicomWindow.center - dicomWindow.width / 2;
-                    var zMax = dicomWindow.center + dicomWindow.width / 2;
-                    var colorRange = [0, 255];
-                    colorScale = d3.scale.linear()
-                        .domain(plotting.linspace(zMin, zMax, colorRange.length))
-                        .rangeRound(colorRange)
-                        .clamp(true);
-                }
-            }
-
-            var colorScale;
-            function initImage() {
-                var xSize = heatmap[0].length;
-                var ySize = heatmap.length;
-                var img = imageData;
-
-                for (var yi = 0, p = -1; yi < ySize; ++yi) {
-                    for (var xi = 0; xi < xSize; ++xi) {
-                        var c = colorScale(heatmap[yi][xi]);
-                        img.data[++p] = c;
-                        img.data[++p] = c;
-                        img.data[++p] = c;
-                        img.data[++p] = 0xff;
-                    }
-                }
-                cacheCanvas.getContext('2d').putImageData(img, 0, 0);
-                return colorScale;
-            }
-
-            var oldDicomWindow = null;
-            function dicomWindowChanged() {
-                return !(oldDicomWindow && appState.deepEquals(oldDicomWindow, appState.models.dicomWindow));
-            }
-
-            function clearCache() {
-                requestCache = {};
-                colorScale = null;
-            }
-
-            function updateSelectedDicomPlane(plane) {
-                selectedDicomPlane = plane;
-                var planeInfo = appState.models.dicomSeries.planes[selectedDicomPlane];
-                //console.log(planeInfo);
-                frameCache.setCurrentFrame($scope.modelName, planeInfo.frameIndex);
-                frameCache.setFrameCount(planeInfo.frameCount, $scope.modelName);
-            }
+            };
 
             $scope.modelChanged = function() {
                 //console.log('model changed');
@@ -728,23 +740,6 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 refresh();
             };
 
-            $scope.setZoomMode = function(mode) {
-                $scope.zoomMode = mode;
-                refresh();
-            };
-
-            $scope.$on('roiPointsLoaded', function() {
-                if (xValues) {
-                    refresh();
-                }
-            });
-
-
-            $scope.prevFrameIndex = -1;
-            $scope.isPlaying = false;
-
-            var requestCache = {};
-            var inRequest = false;
 
             $scope.requestData = function() {
                 if (! $scope.hasFrames()) {
@@ -754,9 +749,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 if (frameCache.getCurrentFrame($scope.modelName) == $scope.prevFrameIndex) {
                     return;
                 }
-                //$scope.prevFrameIndex = index;
-                var cache = requestCache[index];
-                //console.log('requestData:', index);
+                var cache = $scope.requestCache[index];
                 if (cache) {
                     if ($scope.isPlaying) {
                         $interval(
@@ -786,7 +779,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                                 panelState.setError($scope.modelName, data.error);
                                 return;
                             }
-                            requestCache[index] = data;
+                            $scope.requestCache[index] = data;
                             if (index == frameCache.getCurrentFrame($scope.modelName)) {
                                 $scope.load(data);
                             }
@@ -803,74 +796,17 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                     });
                 }
             };
-            $scope.advanceFrame = function(increment) {
-                var next = frameCache.getCurrentFrame($scope.modelName) + increment;
-                if (next < 0 || next > frameCache.getFrameCount($scope.modelName) - 1) {
-                    $scope.isPlaying = false;
-                    return;
-                }
-                frameCache.setCurrentFrame($scope.modelName, next);
-                $scope.requestData();
+
+            $scope.setZoomMode = function(mode) {
+                $scope.zoomMode = mode;
+                refresh();
             };
-            $scope.defaultFrame = function() {
-                var model = appState.models[$scope.modelName];
-                frameCache.setCurrentFrame($scope.modelName, appState.models.dicomSeries.planes[model.dicomPlane].frameIndex || 0);
-                $scope.requestData();
-            };
-            $scope.firstFrame = function() {
-                $scope.isPlaying = false;
-                frameCache.setCurrentFrame($scope.modelName, 0);
-                //console.log('currentFrame:', frameCache.getCurrentFrame($scope.modelName));
-                if ($scope.modelChanged) {
-                    $scope.modelChanged();
-                }
-                $scope.requestData();
-            };
-            $scope.hasFrames = function() {
-                return frameCache.isLoaded() && frameCache.getFrameCount($scope.modelName) > 0;
-            };
-            $scope.hasManyFrames = function() {
-                return frameCache.isLoaded() && frameCache.getFrameCount($scope.modelName) > 1;
-            };
-            $scope.isFirstFrame = function() {
-                return frameCache.getCurrentFrame($scope.modelName) === 0;
-            };
-            $scope.isLastFrame = function() {
-                return frameCache.getCurrentFrame($scope.modelName) == frameCache.getFrameCount($scope.modelName) - 1;
-            };
-            $scope.lastFrame = function() {
-                $scope.isPlaying = false;
-                frameCache.setCurrentFrame($scope.modelName, frameCache.getFrameCount($scope.modelName) - 1);
-                $scope.requestData();
-            };
-            $scope.togglePlay = function() {
-                $scope.isPlaying = ! $scope.isPlaying;
-                if ($scope.isPlaying) {
-                    $scope.advanceFrame(1);
-                }
-            };
-            $scope.$on('framesCleared', function() {
-                $scope.prevFrameIndex = -1;
-                if ($scope.clearData) {
-                    $scope.clearData();
+
+            $scope.$on('roiPointsLoaded', function() {
+                if (xValues) {
+                    refresh();
                 }
             });
-            $scope.$on('modelsLoaded', $scope.requestData);
-            $scope.$on('framesLoaded', function(event, oldFrameCount) {
-                if ($scope.prevFrameIndex < 0 || oldFrameCount === 0) {
-                    $scope.defaultFrame();
-                }
-                else if ($scope.prevFrameIndex > frameCache.getFrameCount($scope.modelName)) {
-                    $scope.firstFrame();
-                }
-                // go to the next last frame, if the current frame was the previous last frame
-                else if (frameCache.getCurrentFrame($scope.modelName) >= oldFrameCount - 1) {
-                    $scope.defaultFrame();
-                }
-            });
-            if (appState.isLoaded()) {
-                $scope.requestData();
-            }
         },
         link: function link(scope, element) {
             appState.whenModelsLoaded(scope, function() {

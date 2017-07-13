@@ -1,12 +1,13 @@
 {
     "models": {
         "dicomAnimation": {
-            "dicomPlane": "t",
-            "frameIndex": 0
+            "dicomPlane": "t"
         },
         "dicomAnimation2": {
-            "dicomPlane": "t",
-            "frameIndex": 0
+            "dicomPlane": "s"
+        },
+        "dicomAnimation3": {
+            "dicomPlane": "c"
         },
         "dicomSeries": {},
         "dicomWindow": {
