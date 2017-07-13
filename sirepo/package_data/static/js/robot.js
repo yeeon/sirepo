@@ -436,7 +436,7 @@ SIREPO.app.directive('dicomHistogram', function(appState, plotting, robotService
             $scope.$on('dicomWindow.changed', function() {
                 $scope.resize();
             });
-            
+
         },
         link: function link(scope, element) {
             plotting.linkPlot(scope, element);
@@ -647,7 +647,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                     var dicomWindow = appState.models.dicomWindow;
                     var zMin = dicomWindow.center - dicomWindow.width / 2;
                     var zMax = dicomWindow.center + dicomWindow.width / 2;
-                    var colorRange = [0x33, 255];
+                    var colorRange = [0, 255];
                     colorScale = d3.scale.linear()
                         .domain(plotting.linspace(zMin, zMax, colorRange.length))
                         .rangeRound(colorRange)
@@ -673,7 +673,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, plotting, robot
                 cacheCanvas.getContext('2d').putImageData(img, 0, 0);
                 return colorScale;
             }
-            
+
             var oldDicomWindow = null;
             function dicomWindowChanged() {
                 return !(oldDicomWindow && appState.deepEquals(oldDicomWindow, appState.models.dicomWindow));
