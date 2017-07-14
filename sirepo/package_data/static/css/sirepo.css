@@ -362,26 +362,6 @@
       opacity: 0;
     }
 
-.sr-plot .bar rect {
-  shape-rendering: crispEdges;
-  fill: steelblue;
-}
-
-.sr-plot .resize path {
-  fill: #666;
-  fill-opacity: .8;
-  stroke: #000;
-  stroke-width: 1.5px;
-}
-
-.sr-plot .brush .extent {
-  stroke: #fff;
-  stroke-opacity: .6;
-  stroke-width: 2px;
-  fill-opacity: .1;
-  shape-rendering: crispEdges;
-}
-
     @media (max-width: 767px) {
       div.sr-plot .z-axis-label,
       div.sr-plot .y-axis-label,
@@ -843,4 +823,26 @@ p.hellweg-drop-zone {
   fill: none;
   stroke: rgb(255, 127, 14);
   stroke-width: 2px;
+}
+.sr-plot .bar rect {
+  shape-rendering: crispEdges;
+  fill: steelblue;
+}
+.sr-plot .resize path {
+  fill: #666;
+  fill-opacity: .8;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+.sr-plot .brush .extent {
+  stroke: #fff;
+  stroke-opacity: .6;
+  stroke-width: 2px;
+  fill-opacity: .1;
+  shape-rendering: crispEdges;
+}
+.sr-plot .cross-hair {
+  stroke-width: 1px;
+  shape-rendering: crispEdges;
+  stroke: steelblue;
 }
