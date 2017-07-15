@@ -728,7 +728,10 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 frameId = json.ImagePositionPatient[2];
                 //console.log('frameId:', frameId);
                 var preserveZoom = xValues ? true : false;
-                dicomDomain = json.domain;
+                //TODO(pjm): pixels are centered on point, move this to server
+                dicomDomain = appState.clone(json.domain);
+                dicomDomain[0][0] -= json.PixelSpacing[0] / 2.0;
+                dicomDomain[0][1] -= json.PixelSpacing[1] / 2.0;
                 xValues = plotting.linspace(0, json.shape[1] * json.PixelSpacing[0] / 1000.0, json.shape[1]);
                 yValues = plotting.linspace(0, json.shape[0] * json.PixelSpacing[1] / 1000.0, json.shape[0]);
                 cacheCanvas.width = xValues.length;
@@ -841,7 +844,9 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
 
             $scope.setZoomMode = function(mode) {
                 robotService.zoomMode = mode;
-                refresh();
+                //TODO(pjm): want all dicoms to refresh, rename roiPointsLoaded
+                //refresh();
+                $rootScope.$broadcast('roiPointsLoaded');
             };
 
             $scope.$on('roiPointsLoaded', function() {
