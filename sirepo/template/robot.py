@@ -14,6 +14,7 @@ from sirepo import simulation_db
 from sirepo.template import template_common
 import ctypes
 import dicom
+import glob
 import numpy as np
 import os
 import os.path
@@ -56,9 +57,13 @@ def background_percent_complete(report, run_dir, is_running, schema):
 
 
 def copy_related_files(data, source_path, target_path):
-    #TODO(pjm): copy pixel and roi files
-    #py.path.local(source_path).join(_DICOM_DIR).copy(py.path.local(target_path))
-    pass
+    # pixels3d.dat, rs4pi-roi-data.json, dicom/*.json
+    for filename in (_PIXEL_FILE, _ROI_FILE_NAME):
+        py.path.local(source_path).join(filename).copy(py.path.local(target_path).join(filename))
+    dicom_dir = py.path.local(target_path).join(_DICOM_DIR)
+    pkio.mkdir_parent(str(dicom_dir))
+    for f in glob.glob(str(py.path.local(source_path).join(_DICOM_DIR, '*'))):
+        py.path.local(f).copy(dicom_dir)
 
 
 def fixup_old_data(data):
