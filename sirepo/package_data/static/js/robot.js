@@ -484,35 +484,34 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
             var heatmap;
 
             function addContours() {
-                select().selectAll('.polygons polygon').remove();
-                var ymax = yValues[yValues.length - 1];
+                select().selectAll('.polygons path').remove();
+                var yMax = yValues[yValues.length - 1];
+                var xMin = dicomDomain[0][0];
+                var yMin = dicomDomain[0][1];
                 var rois = robotService.getROIPoints();
-                // var found = [];
+                Object.keys(rois).forEach(function(roiNumber) {
+                    rois[roiNumber].isVisible = false;
+                });
                 Object.keys(rois).forEach(function(roiNumber) {
                     var roi = rois[roiNumber];
                     if (roi.contour && roi.contour[frameId]) {
-                        // found.push(roi.name);
+                        roi.isVisible = true;
+                        var svgPath = '';
                         roi.contour[frameId].forEach(function(contourData) {
-                            var d = [];
+                            svgPath += ' M';
                             for (var i = 0; i < contourData.length; i += 2) {
-                                d.push([(contourData[i] - dicomDomain[0][0]) / 1000, (contourData[i + 1] - dicomDomain[0][1]) / 1000]);
+                                svgPath += xAxisScale((contourData[i] - xMin) / 1000)
+                                    + ',' + yAxisScale(yMax - ((contourData[i + 1] - yMin) / 1000)) + ' ';
                             }
-                            select('.polygons')
-                                .append('polygon')
-                                .data([d])
-                                .attr('class', 'dicom-shape')
-                                .attr('style', roiStyle(roi, roiNumber))
-                                .attr('points', function(d) {
-                                    return d.map(function(d) {
-                                        return [xAxisScale(d[0]), yAxisScale(ymax - d[1])].join(',');
-                                    });
-                                });
+                            svgPath += 'Z';
                         });
+                        select('.polygons')
+                            .append('path')
+                            .attr('class', 'dicom-shape')
+                            .attr('style', roiStyle(roi, roiNumber))
+                            .attr('d', svgPath);
                     }
                 });
-                // if (found.length) {
-                //     console.log('found:', found.join(' '));
-                // }
             }
 
             function addPlaneLines() {
@@ -641,7 +640,9 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                         select('.mouse-rect').attr('class', 'mouse-rect');
                 }
                 plotting.drawImage(xAxisScale, yAxisScale, $scope.canvasSize, $scope.canvasHeight, xValues, yValues, canvas, cacheCanvas, false);
-                addContours();
+                if (! $scope.isSubFrame) {
+                    addContours();
+                }
                 addPlaneLines();
                 resetZoom();
                 select('.x.axis').call(xAxis);
@@ -883,7 +884,7 @@ SIREPO.app.directive('roiTable', function(appState, robotService) {
                 '</tr>',
               '</thead>',
               '<tbody>',
-                '<tr data-ng-click="activate(roi)" data-ng-repeat="roi in roiList track by roi.name" data-ng-class="{warning: isActive(roi)}">',
+                '<tr data-ng-show="roi.isVisible" data-ng-click="activate(roi)" data-ng-repeat="roi in roiList track by roi.name" data-ng-class="{warning: isActive(roi)}">',
                   '<td style="padding-left: 1em">{{ roi.name }}</td>',
                   '<td><div style="border: 1px solid #333; background-color: {{ d3Color(roi.color) }}">&nbsp;</div></td>',
                 '</tr>',
@@ -894,7 +895,7 @@ SIREPO.app.directive('roiTable', function(appState, robotService) {
             $scope.roiList = null;
 
             $scope.activate = function(roi) {
-                appState.models.dicomSeries.activeRoiNumber = roi.number;
+                appState.models.dicomSeries.activeRoiNumber = roi.roiNumber;
                 appState.saveChanges('dicomSeries');
             };
 
@@ -904,7 +905,7 @@ SIREPO.app.directive('roiTable', function(appState, robotService) {
 
             $scope.isActive = function(roi) {
                 if (appState.isLoaded()) {
-                    return appState.models.dicomSeries.activeRoiNumber == roi.number;
+                    return appState.models.dicomSeries.activeRoiNumber == roi.roiNumber;
                 }
                 return false;
             };
@@ -914,15 +915,10 @@ SIREPO.app.directive('roiTable', function(appState, robotService) {
                 var rois = robotService.getROIPoints();
                 Object.keys(rois).forEach(function(roiNumber) {
                     var roi = rois[roiNumber];
-                    var c = roi.color;
-                    if (! c) {
-                        return;
+                    roi.roiNumber = roiNumber;
+                    if (roi.color) {
+                        $scope.roiList.push(roi);
                     }
-                    $scope.roiList.push({
-                        number: roiNumber,
-                        name: roi.name,
-                        color: c,
-                    });
                 });
                 $scope.roiList.sort(function(a, b) {
                     return a.name.localeCompare(b.name);
