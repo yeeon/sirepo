@@ -11,8 +11,8 @@
         },
         "dicomSeries": {},
         "dicomWindow": {
-            "center": 150,
-            "width": 2400
+            "center": 0,
+            "width": 400
         },
         "panelState": {
             "hidden": []

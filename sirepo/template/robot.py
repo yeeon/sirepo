@@ -28,8 +28,8 @@ WANT_BROWSER_FRAME_CACHE = True
 
 _CT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.2'
 _DICOM_DIR = 'dicom'
-_DICOM_MAX_VALUE = 2000
-_DICOM_MIN_VALUE = -1250
+_DICOM_MAX_VALUE = 1000
+_DICOM_MIN_VALUE = -1000
 _EXPECTED_ORIENTATION = np.array([1, 0, 0, 0, 1, 0])
 _INT_SIZE = ctypes.sizeof(ctypes.c_int)
 _PIXEL_FILE = 'pixels3d.dat'
