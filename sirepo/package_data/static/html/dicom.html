@@ -13,7 +13,7 @@
               <rect ng-attr-width="{{ canvasSize }}" ng-attr-height="{{ canvasHeight }}"></rect>
             </clippath>
           </defs>
-          <g class="polygons" ng-attr-clip-path="url(#{{ modelName }}-clip")></g>
+          <g class="polygons" ng-attr-clip-path="url(#{{ modelName }}-clip)"></g>
           <rect class="mouse-rect mouse-zoom" ng-attr-width="{{ canvasSize }}" ng-attr-height="{{ canvasHeight }}" style="pointer-events: all; fill: none;"></rect>
           <g data-ng-hide="isSubFrame" class="x axis" ng-attr-transform="translate(0, {{ canvasHeight }})">
             <text class="x-axis-label" ng-attr-x="{{ canvasSize / 2 }}" y="40"></text>
