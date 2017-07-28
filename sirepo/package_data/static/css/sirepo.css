@@ -824,11 +824,6 @@ p.hellweg-drop-zone {
   opacity: 0;
 }
 
-.sr-plot .dicom-shape {
-  fill: none;
-  stroke: rgb(255, 127, 14);
-  stroke-width: 2px;
-}
 .sr-plot .bar rect {
   shape-rendering: crispEdges;
   fill: steelblue;
@@ -850,4 +845,64 @@ p.hellweg-drop-zone {
   stroke-width: 1px;
   shape-rendering: crispEdges;
   stroke: steelblue;
+}
+.sr-flip-glyph {
+  transform: scaleX(-1);
+  filter: FlipH;
+  -ms-filter: "FlipH";
+}
+.sr-rotate-glyph {
+  transform: rotate(-45deg);
+}
+.sr-circle-glyph {
+  font-size: 24px;
+  line-height: 13px;
+  position: relative;
+  top: 3px;
+}
+
+.sr-plot .dicom-roi {
+  fill: none;
+  stroke-width: 4px;
+  stroke-dasharray: 5,5;
+  stroke-width: 2px;
+  fill-rule: evenodd;
+  pointer-events: none;
+}
+.sr-plot .dicom-roi-selected {
+  stroke-dasharray: 1,0;
+}
+.sr-plot .dicom-roi-drawing {
+  stroke-width: 2px;
+  stroke-dasharray: 1,0;
+}
+
+.sr-plot .dicom-dragpath {
+  stroke: #fff;
+  stroke-opacity: 0;
+  fill: none;
+  stroke-width: 15px;
+  pointer-events: visibleStroke;
+}
+.sr-plot .dicom-dragpath:hover {
+  stroke-opacity: 0.1;
+}
+.sr-plot .dicom-dragpath-move {
+  cursor: move;
+}
+.sr-plot .dicom-dragpath-select {
+  cursor: auto;
+}
+
+.sr-plot .dicom-roimode-select {
+  cursor: auto;
+}
+.sr-plot .dicom-roimode-draw {
+  cursor: crosshair;
+}
+
+.sr-plot .dicom-draw-start {
+  stroke: rgb(0,230,0);
+  stroke-width: 1px;
+  fill: none;
 }
