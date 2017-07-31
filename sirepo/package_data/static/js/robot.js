@@ -513,7 +513,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     var v = roiContours[roiNumber];
                     v.roiPath.attr('d', roiLine)
                         .classed('dicom-roi-selected', roiNumber == appState.models.dicomSeries.activeRoiNumber)
-                        .attr('style', roiStyle(v.roi, roiNumber))
+                        .attr('style', roiStyle(v.roi, roiNumber));
                     var canDrag = robotService.isEditMode && robotService.editMode == 'select';
                     v.dragPath.attr('d', roiLine)
                         .classed('dicom-dragpath-move', canDrag)
@@ -582,9 +582,9 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     return;
                 }
                 select().selectAll('.polygons line').remove();
-                var yPlane = robotService.getPlaneCoord(selectedDicomPlane == 't' ? 'c' : 't');
+                var yPlane = robotService.getPlaneCoord($scope.isTransversePlane() ? 'c' : 't');
                 var y = (yPlane - dicomDomain[0][1]) / 1000;
-                if (selectedDicomPlane == 't') {
+                if ($scope.isTransversePlane()) {
                     y = yValues[yValues.length - 1] - y;
                 }
                 y = yAxisScale(y);
@@ -701,7 +701,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 }
                 select('.overlay').classed('mouse-zoom', robotService.zoomMode == 'zoom');
                 plotting.drawImage(xAxisScale, yAxisScale, $scope.canvasSize, $scope.canvasHeight, xValues, yValues, canvas, cacheCanvas, false);
-                if (selectedDicomPlane == 't') {
+                if ($scope.isTransversePlane()) {
                     redrawContours();
                 }
                 addPlaneLines();
@@ -732,6 +732,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
             }
 
             function roiDrag(d) {
+                /*jshint validthis: true*/
                 if (! robotService.isEditMode || robotService.editMode != 'select') {
                     console.log('roiDrag not select mode');
                     return;
@@ -755,6 +756,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
             }
 
             function roiClick() {
+                /*jshint validthis: true*/
                 if (d3.event.defaultPrevented) {
                     return;
                 }
@@ -852,6 +854,10 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     .y(function(d) {
                         return yAxisScale(d[1]);
                     });
+            };
+
+            $scope.isTransversePlane = function() {
+                return selectedDicomPlane == 't';
             };
 
             $scope.load = function(json) {
@@ -1002,15 +1008,13 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 }
             });
 
-            if (selectedDicomPlane == 't') {
-                var redrawIfChanged = function(newValue, oldValue) {
-                    if (newValue != oldValue) {
-                        redrawContours();
-                    }
-                };
-                $scope.$watch('robotService.isEditMode', redrawIfChanged);
-                $scope.$watch('robotService.editMode', redrawIfChanged);
-            }
+            var redrawIfChanged = function(newValue, oldValue) {
+                if ($scope.isTransversePlane() && newValue != oldValue) {
+                    redrawContours();
+                }
+            };
+            $scope.$watch('robotService.isEditMode', redrawIfChanged);
+            $scope.$watch('robotService.editMode', redrawIfChanged);
         },
         link: function link(scope, element) {
             appState.whenModelsLoaded(scope, function() {
