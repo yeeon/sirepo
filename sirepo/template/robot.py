@@ -67,7 +67,8 @@ def copy_related_files(data, source_path, target_path):
 
 
 def fixup_old_data(data):
-    pass
+    if 'dicomEditorState' not in data['models']:
+        data['models']['dicomEditorState'] = {}
 
 
 def get_animation_name(data):
@@ -149,10 +150,14 @@ def _calculate_domain(frame):
     spacing = frame['PixelSpacing']
     shape = frame['shape']
     return [
-        position,
         [
-            position[0] + spacing[0] * shape[0],
-            position[1] + spacing[1] * shape[1],
+            position[0] - spacing[0] / 2,
+            position[1] - spacing[1] / 2,
+            position[2],
+        ],
+        [
+            position[0] + spacing[0] * shape[1] - spacing[0] / 2,
+            position[1] + spacing[1] * shape[0] - spacing[1] / 2,
             position[2],
         ],
     ]

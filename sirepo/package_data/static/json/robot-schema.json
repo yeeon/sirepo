@@ -19,6 +19,9 @@
             "dicomPlane": ["Plane", "DicomPlane"],
             "frameIndex": ["Frame Index", "Integer"]
         },
+        "dicomEditorState": {
+            "editCounter": ["Edit Count", "Integer"]
+        },
         "dicomSeries": {
             "description": ["Series Description", "String"]
         },
@@ -47,6 +50,10 @@
                 "dicomWindow.center",
                 "dicomWindow.width"
             ]
+        },
+        "dicomEditorState": {
+            "title": "DICOM Editor",
+            "advanced": []
         },
         "dicomWindow": {
             "title": "Dicom Window Aperture",
