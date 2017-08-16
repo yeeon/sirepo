@@ -502,106 +502,26 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
         },
         templateUrl: '/static/html/dicom.html' + SIREPO.SOURCE_CACHE_KEY,
         controller: function($scope) {
-            $scope.robotService = robotService;
-            $scope.margin = $scope.isSubFrame
-                ? {top: 20, left: 10, right: 10, bottom: 0}
-                : {top: 20, left: 60, right: 30, bottom: 30};
-            // will be set to the correct size in resize()
-            $scope.canvasSize = 0;
             $scope.canvasHeight = 0;
-
-            var canvas, ctx, dicomDomain, frameId, xAxis, xAxisScale, xValues, yAxis, yAxisScale, yValues, zoom;
-            var cacheCanvas, imageData;
-            var selectedDicomPlane = '';
-            var frameScale;
+            $scope.canvasSize = 0;
+            $scope.margin = {top: 20, left: 10, right: 10, bottom: 0};
             $scope.requestCache = {};
+            $scope.robotService = robotService;
+
+            var cacheCanvas, imageData;
+            var canvas, ctx, dicomDomain, frameId, xAxisScale, xValues, yAxisScale, yValues, zoom;
+            var colorScale;
+            var drag, dragLine;
+            var editedContours = {};
+            var frameScale;
+            var hasDragged = false;
+            var heatmap;
             var inRequest = false;
             var oldDicomWindow = null;
-            var colorScale;
-            var heatmap;
-            var roiLine;
+            var planeLines = null;
             var roiContours = null;
-            var drag;
-
-            function redrawContours() {
-                if (! roiContours) {
-                    addContours();
-                    return;
-                }
-                Object.keys(roiContours).forEach(function(roiNumber) {
-                    var v = roiContours[roiNumber];
-                    v.roiPath.attr('d', roiLine)
-                        .classed('dicom-roi-selected', roiNumber == appState.models.dicomSeries.activeRoiNumber)
-                        .attr('style', roiStyle(v.roi, roiNumber));
-                    var canDrag = robotService.isEditing && robotService.isEditMode('select');
-                    v.dragPath.attr('d', roiLine)
-                        .classed('dicom-dragpath-move', canDrag)
-                        .classed('dicom-dragpath-select', ! canDrag);
-                    if (canDrag) {
-                        v.dragPath.call(drag);
-                    }
-                    else {
-                        // v.dragPath.on('.drag', null);
-                    }
-                });
-            }
-
-            var editedContours = {};
-
-            function updateContourData(points) {
-                var roi = robotService.getROIPoints()[appState.models.dicomSeries.activeRoiNumber];
-                if (! editedContours[roi.roiNumber]) {
-                    editedContours[roi.roiNumber] = {};
-                }
-                var yMax = yValues[yValues.length - 1] + yValues[0];
-                var contourList = [];
-                editedContours[roi.roiNumber][frameId] = contourList;
-                var current = [];
-                contourList.push(current);
-                points.forEach(function(p) {
-                    if (p) {
-                        current.push(
-                            p[0],
-                            yMax - p[1]);
-                    }
-                    else {
-                        current = [];
-                        contourList.push(current);
-                    }
-                });
-            }
-
-            function getContourForFrame(roi, frameId) {
-                var editRoi = editedContours[roi.roiNumber];
-                if (editRoi && editRoi[frameId]) {
-                    return editRoi[frameId];
-                }
-                if (roi.contour && roi.contour[frameId]) {
-                    return roi.contour[frameId];
-                }
-                return null;
-            }
-
-            $scope.$on('dicomEditorState.changed', function() {
-                if ($scope.isSubFrame) {
-                    return;
-                }
-                var rois = robotService.getROIPoints();
-                Object.keys(editedContours).forEach(function(roiNumber) {
-                    Object.keys(editedContours[roiNumber]).forEach(function(frameId) {
-                        rois[roiNumber].contour[frameId] = editedContours[roiNumber][frameId];
-                    });
-                });
-                editedContours = {};
-            });
-
-            $scope.$on('cancelChanges', function(e, name) {
-                if (name == 'dicomEditorState' && ! $scope.isSubFrame) {
-                    editedContours = {};
-                    clearContours();
-                    redrawContours();
-                }
-            });
+            var roiLine;
+            var selectedDicomPlane = '';
 
             function addContours() {
                 clearContours();
@@ -627,6 +547,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                             for (var i = 0; i < contourData.length; i += 2) {
                                 points.push([
                                     contourData[i],
+                                    //TODO(pjm): flipud
                                     yMax - contourData[i + 1],
                                 ]);
                             }
@@ -649,42 +570,6 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     }
                 });
                 redrawContours();
-            }
-
-            function addPlaneLines() {
-                if (! dicomDomain) {
-                    return;
-                }
-                select().selectAll('.polygons line').remove();
-                var yPlane = robotService.getPlaneCoord($scope.isTransversePlane() ? 'c' : 't');
-                var y = yPlane;
-                if ($scope.isTransversePlane()) {
-                    y = yValues[yValues.length - 1] + yValues[0] - y;
-                }
-                y = yAxisScale(y);
-                if (isNaN(y)) {
-                    return;
-                }
-                select('.polygons')
-                    .append('line')
-                    .attr('class', 'cross-hair')
-                    .attr('x1', 0)
-                    .attr('y1', y)
-                    .attr('x2', $scope.canvasSize)
-                    .attr('y2', y);
-
-                var xPlane = robotService.getPlaneCoord(selectedDicomPlane == 's' ? 'c' : 's');
-                var x = xAxisScale(xPlane);
-                if (isNaN(x)) {
-                    return;
-                }
-                select('.polygons')
-                    .append('line')
-                    .attr('class', 'cross-hair')
-                    .attr('x1', x)
-                    .attr('y1', 0)
-                    .attr('x2', x)
-                    .attr('y2', $scope.canvasHeight);
             }
 
             function advanceFrame() {
@@ -720,8 +605,33 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 select().selectAll('.polygons path').remove();
             }
 
+            function createPlaneLines(axis) {
+                return {
+                    planeLine: select('.polygons')
+                        .append('line')
+                        .attr('class', 'cross-hair')
+                        .attr(oppositeAxis(axis) + '1', 0),
+                    dragLine: select('.polygons')
+                        .append('line')
+                        .attr('class', 'plane-dragline plane-dragline-' + axis)
+                        .attr(oppositeAxis(axis) + '1', 0)
+                        .call(dragLine),
+                };
+            }
+
             function dicomWindowChanged() {
                 return !(oldDicomWindow && appState.deepEquals(oldDicomWindow, appState.models.dicomWindow));
+            }
+
+            function getContourForFrame(roi, frameId) {
+                var editRoi = editedContours[roi.roiNumber];
+                if (editRoi && editRoi[frameId]) {
+                    return editRoi[frameId];
+                }
+                if (roi.contour && roi.contour[frameId]) {
+                    return roi.contour[frameId];
+                }
+                return null;
             }
 
             function getRange(values) {
@@ -730,6 +640,13 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
 
             function getSize(values) {
                 return values[values.length - 1] - values[0];
+            }
+
+            function getTargetPlane(axis) {
+                if (axis == 'y') {
+                    return $scope.isTransversePlane() ? 'c' : 't';
+                }
+                return selectedDicomPlane == 's' ? 'c' : 's';
             }
 
             function initColormap() {
@@ -762,10 +679,88 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 cacheCanvas.getContext('2d').putImageData(img, 0, 0);
             }
 
+            function lineDrag() {
+                /*jshint validthis: true*/
+                var line = d3.select(this);
+                if (line.classed('plane-dragline-y')) {
+                    var y = parseFloat(line.attr('y1')) + parseFloat(d3.event.dy);
+                    line.attr('y1', y).attr('y2', y);
+                    planeLines.y.planeLine.attr('y1', y).attr('y2', y);
+                }
+                else if (line.classed('plane-dragline-x')) {
+                    var x = parseFloat(line.attr('x1')) + parseFloat(d3.event.dx);
+                    line.attr('x1', x).attr('x2', x);
+                    planeLines.x.planeLine.attr('x1', x).attr('x2', x);
+                }
+            }
+
+            function lineDragEnd() {
+                /*jshint validthis: true*/
+                var line = d3.select(this);
+                if (line.classed('plane-dragline-y')) {
+                    var y = yAxisScale.invert(line.attr('y1'));
+                    if ($scope.isTransversePlane()) {
+                        //TODO(pjm): flipud
+                        y = yValues[yValues.length - 1] + yValues[0] - y;
+                    }
+                    updateTargetPlane('y', y);
+                }
+                else if (line.classed('plane-dragline-x')) {
+                    updateTargetPlane('x', xAxisScale.invert(line.attr('x1')));
+                }
+            }
+
             function loadImage() {
                 oldDicomWindow = appState.clone(appState.models.dicomWindow);
                 initColormap();
                 initImage();
+            }
+
+            function oppositeAxis(axis) {
+                if (axis == 'y') {
+                    return 'x';
+                }
+                if (axis == 'x') {
+                    return 'y';
+                }
+                throw 'invalid axis: ' + axis;
+            }
+
+            function redrawContours() {
+                if (! roiContours) {
+                    addContours();
+                    return;
+                }
+                Object.keys(roiContours).forEach(function(roiNumber) {
+                    var v = roiContours[roiNumber];
+                    v.roiPath.attr('d', roiLine)
+                        .classed('dicom-roi-selected', roiNumber == appState.models.dicomSeries.activeRoiNumber)
+                        .attr('style', roiStyle(v.roi, roiNumber));
+                    var canDrag = robotService.isEditing && robotService.isEditMode('select');
+                    v.dragPath.attr('d', roiLine)
+                        .classed('dicom-dragpath-move', canDrag)
+                        .classed('dicom-dragpath-select', ! canDrag);
+                    if (canDrag) {
+                        v.dragPath.call(drag);
+                    }
+                    else {
+                        // v.dragPath.on('.drag', null);
+                    }
+                });
+            }
+
+            function redrawActivePath() {
+                var active = roiContours[appState.models.dicomSeries.activeRoiNumber];
+                if (active) {
+                    active.roiPath.attr('d', roiLine);
+                    active.dragPath.attr('d', roiLine);
+                }
+            }
+
+            function redrawIfChanged(newValue, oldValue) {
+                if ($scope.isTransversePlane() && newValue != oldValue) {
+                    redrawContours();
+                }
             }
 
             function refresh() {
@@ -781,10 +776,8 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 if ($scope.isTransversePlane()) {
                     redrawContours();
                 }
-                addPlaneLines();
+                updatePlaneLines();
                 resetZoom();
-                select('.x.axis').call(xAxis);
-                select('.y.axis').call(yAxis);
             }
 
             function resetZoom() {
@@ -802,15 +795,14 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 }
             }
 
-            function redrawActivePath() {
-                var active = roiContours[appState.models.dicomSeries.activeRoiNumber];
-                if (active) {
-                    active.roiPath.attr('d', roiLine);
-                    active.dragPath.attr('d', roiLine);
+            function roiClick() {
+                /*jshint validthis: true*/
+                if (d3.event.defaultPrevented) {
+                    return;
                 }
+                d3.event.preventDefault();
+                setActiveROIFromNode(this);
             }
-
-            var hasDragged = false;
 
             function roiDrag(d) {
                 /*jshint validthis: true*/
@@ -823,23 +815,18 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 if (dx || dy) {
                     hasDragged = true;
                     var xDomain = xAxisScale.domain();
-                    var xPixelSize = (xDomain[1] - xDomain[0]) / $scope.canvasSize;
+                    var xPixelSize = dx * (xDomain[1] - xDomain[0]) / $scope.canvasSize;
                     var yDomain = yAxisScale.domain();
-                    var yPixelSize = (yDomain[1] - yDomain[0]) / $scope.canvasHeight;
+                    var yPixelSize = dy * (yDomain[1] - yDomain[0]) / $scope.canvasHeight;
                     d.forEach(function(p) {
                         if (p) {
-                            p[0] += dx * xPixelSize;
-                            p[1] -= dy * yPixelSize;
+                            p[0] += xPixelSize;
+                            p[1] -= yPixelSize;
                         }
                     });
                     setActiveROIFromNode(this);
                     redrawActivePath();
                 }
-            }
-
-            function setEditorDirty() {
-                var editorState = appState.models.dicomEditorState;
-                editorState.editCounter = (editorState.editCounter || 0) + 1;
             }
 
             function roiDragEnd(d) {
@@ -849,36 +836,6 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     setEditorDirty();
                     $scope.$applyAsync();
                 }
-            }
-
-            function roiClick() {
-                /*jshint validthis: true*/
-                if (d3.event.defaultPrevented) {
-                    return;
-                }
-                d3.event.preventDefault();
-                setActiveROIFromNode(this);
-            }
-
-            function setActiveROIFromNode(node) {
-                var roiNumbers = Object.keys(roiContours);
-                for (var i = 0; i < roiNumbers.length; i++) {
-                    if (roiContours[roiNumbers[i]].dragPath.node() === node) {
-                        setActiveROI(roiNumbers[i]);
-                        return;
-                    }
-                }
-                throw 'invalid dragPath';
-            }
-
-            function setActiveROI(roiNumber) {
-                if (roiNumber == appState.models.dicomSeries.activeRoiNumber) {
-                    return;
-                }
-                $scope.$applyAsync(function() {
-                    appState.models.dicomSeries.activeRoiNumber = roiNumber;
-                    redrawContours();
-                });
             }
 
             function roiStyle(roi, roiNumber) {
@@ -895,9 +852,90 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 return selector ? e.select(selector) : e;
             }
 
+            function setActiveROI(roiNumber) {
+                if (roiNumber == appState.models.dicomSeries.activeRoiNumber) {
+                    return;
+                }
+                $scope.$applyAsync(function() {
+                    appState.models.dicomSeries.activeRoiNumber = roiNumber;
+                    redrawContours();
+                });
+            }
+
+            function setActiveROIFromNode(node) {
+                var roiNumbers = Object.keys(roiContours);
+                for (var i = 0; i < roiNumbers.length; i++) {
+                    if (roiContours[roiNumbers[i]].dragPath.node() === node) {
+                        setActiveROI(roiNumbers[i]);
+                        return;
+                    }
+                }
+                throw 'invalid dragPath';
+            }
+
+            function setEditorDirty() {
+                var editorState = appState.models.dicomEditorState;
+                editorState.editCounter = (editorState.editCounter || 0) + 1;
+            }
+
+            function updateContourData(points) {
+                var roi = robotService.getROIPoints()[appState.models.dicomSeries.activeRoiNumber];
+                if (! editedContours[roi.roiNumber]) {
+                    editedContours[roi.roiNumber] = {};
+                }
+                var yMax = yValues[yValues.length - 1] + yValues[0];
+                var contourList = [];
+                editedContours[roi.roiNumber][frameId] = contourList;
+                var current = [];
+                contourList.push(current);
+                points.forEach(function(p) {
+                    if (p) {
+                        current.push(
+                            p[0],
+                            //TODO(pjm): flipud
+                            yMax - p[1]);
+                    }
+                    else {
+                        current = [];
+                        contourList.push(current);
+                    }
+                });
+            }
+
             function updateCurrentFrame() {
                 appState.models.dicomSeries.planes[selectedDicomPlane].frameIndex = frameCache.getCurrentFrame($scope.modelName);
                 appState.saveQuietly('dicomSeries');
+            }
+
+            function updatePlaneLine(axis, axisScale, size) {
+                var v = robotService.getPlaneCoord(getTargetPlane(axis));
+                if (axis == 'y' && $scope.isTransversePlane()) {
+                    //TODO(pjm): flipud
+                    v = yValues[yValues.length - 1] + yValues[0] - v;
+                }
+                v = axisScale(v);
+                if (! isNaN(v)) {
+                    ['planeLine', 'dragLine'].forEach(function (f) {
+                        planeLines[axis][f]
+                            .attr(axis + '1', v)
+                            .attr(axis + '2', v)
+                            .attr(oppositeAxis(axis) + '2', size);
+                    });
+                }
+            }
+
+            function updatePlaneLines() {
+                if (! dicomDomain) {
+                    return;
+                }
+                if (! planeLines) {
+                    planeLines = {
+                        x: createPlaneLines('x'),
+                        y: createPlaneLines('y'),
+                    };
+                }
+                updatePlaneLine('x', xAxisScale, $scope.canvasHeight);
+                updatePlaneLine('y', yAxisScale, $scope.canvasSize);
             }
 
             function updateSelectedDicomPlane(plane) {
@@ -905,6 +943,28 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 var planeInfo = appState.models.dicomSeries.planes[selectedDicomPlane];
                 frameCache.setCurrentFrame($scope.modelName, planeInfo.frameIndex);
                 frameCache.setFrameCount(planeInfo.frameCount, $scope.modelName);
+            }
+
+            function updateTargetPlane(axis, v) {
+                var values = axis == 'y' ? yValues : xValues;
+                var min = values[0];
+                var max = values[values.length - 1];
+                if (v < min) {
+                    v = min;
+                }
+                else if (v > max) {
+                    v = max;
+                }
+                var series = appState.models.dicomSeries;
+                var targetPlane = getTargetPlane(axis);
+                var frameCount = series.planes[targetPlane].frameCount;
+                var newIndex = Math.floor((v - min) * frameCount / (max - min));
+                if (newIndex == frameCount) {
+                    newIndex--;
+                }
+                $scope.$applyAsync(function() {
+                    $rootScope.$broadcast('updatePlaneFrameIndex', targetPlane, newIndex);
+                });
             }
 
             $scope.deleteSelected = function() {
@@ -936,10 +996,6 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 xAxisScale = d3.scale.linear();
                 yAxisScale = d3.scale.linear();
                 frameScale = d3.scale.linear();
-                xAxis = plotting.createAxis(xAxisScale, 'bottom');
-                xAxis.tickFormat(plotting.fixFormat($scope, 'x', 5));
-                yAxis = plotting.createAxis(yAxisScale, 'left');
-                yAxis.tickFormat(plotting.fixFormat($scope, 'y', 5));
                 drag = d3.behavior.drag()
                     .origin(function(d) { return {x: d[0], y: d[1]}; })
                     .on('drag', roiDrag)
@@ -948,11 +1004,18 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                         d3.event.sourceEvent.stopPropagation();
                     })
                     .on('dragend', roiDragEnd);
+                dragLine = d3.behavior.drag()
+                    .on('drag', lineDrag)
+                    .on('dragstart', function() {
+                        // don't let event propagate to zoom behavior
+                        d3.event.sourceEvent.stopPropagation();
+                    })
+                    .on('dragend', lineDragEnd);
                 resetZoom();
                 canvas = select('canvas').node();
                 ctx = canvas.getContext('2d');
                 cacheCanvas = document.createElement('canvas');
-                $scope.$on('planeCoordChanged', addPlaneLines);
+                $scope.$on('planeCoordChanged', updatePlaneLines);
                 roiLine = d3.svg.line()
                     .defined(function(d) { return d !== null; })
                     .interpolate('linear-closed')
@@ -999,8 +1062,6 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 cacheCanvas.width = xValues.length;
                 cacheCanvas.height = yValues.length;
                 imageData = ctx.getImageData(0, 0, cacheCanvas.width, cacheCanvas.height);
-                select('.x-axis-label').text(plotting.extractUnits($scope, 'x', ' [m]'));
-                select('.y-axis-label').text(plotting.extractUnits($scope, 'y', ' [m]'));
                 if (! preserveZoom) {
                     xAxisScale.domain(getRange(xValues));
                     yAxisScale.domain(getRange(yValues));
@@ -1048,8 +1109,6 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 }
                 $scope.canvasSize = canvasSize;
                 $scope.canvasHeight = canvasSize * getSize(yValues) / getSize(xValues);
-                plotting.ticks(yAxis, $scope.canvasHeight, false);
-                plotting.ticks(xAxis, canvasSize, true);
                 xAxisScale.range([0, canvasSize]);
                 yAxisScale.range([$scope.canvasHeight, 0]);
                 refresh();
@@ -1112,19 +1171,43 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 }
             };
 
+            $scope.$on('cancelChanges', function(e, name) {
+                if (name == 'dicomEditorState' && ! $scope.isSubFrame) {
+                    editedContours = {};
+                    clearContours();
+                    redrawContours();
+                }
+            });
+
+            $scope.$on('dicomEditorState.changed', function() {
+                if ($scope.isSubFrame) {
+                    return;
+                }
+                var rois = robotService.getROIPoints();
+                Object.keys(editedContours).forEach(function(roiNumber) {
+                    Object.keys(editedContours[roiNumber]).forEach(function(frameId) {
+                        rois[roiNumber].contour[frameId] = editedContours[roiNumber][frameId];
+                    });
+                });
+                editedContours = {};
+            });
+
+            $scope.$on('refreshDicomPanels', refresh);
+
             $scope.$on('roiPointsLoaded', function() {
                 if (xValues) {
                     clearContours();
                     refresh();
                 }
             });
-            $scope.$on('refreshDicomPanels', refresh);
 
-            var redrawIfChanged = function(newValue, oldValue) {
-                if ($scope.isTransversePlane() && newValue != oldValue) {
-                    redrawContours();
+            $scope.$on('updatePlaneFrameIndex', function(evt, plane, frameIndex) {
+                if (plane == selectedDicomPlane) {
+                    frameCache.setCurrentFrame($scope.modelName, frameIndex);
+                    $scope.requestData();
                 }
-            };
+            });
+
             $scope.$watch('robotService.isEditing', redrawIfChanged);
             $scope.$watch('robotService.editMode', redrawIfChanged);
         },

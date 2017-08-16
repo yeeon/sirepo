@@ -1,4 +1,5 @@
     <div data-ng-hide="isSubFrame">
+      <div class="dicom-button-panel">
       <div class="btn-group">
         <button class="btn btn-default" data-ng-click="robotService.setZoomMode('advanceFrame')" data-ng-class="{active: robotService.isZoomMode('advanceFrame')}" type="button" title="Scroll through frames"><span class="glyphicon glyphicon-transfer"></span></button>
         <button class="btn btn-default" data-ng-click="robotService.setZoomMode('zoom')" data-ng-class="{active: robotService.isZoomMode('zoom')}" type="button" title="Zoom and pan"><span class="glyphicon glyphicon-zoom-in"></span></button>
@@ -18,18 +19,13 @@
           <button id='paste-copy' class="btn btn-default disabled" title="Paste" type="button"><span class="glyphicon glyphicon-paste"> </span></button>
           <button id='delete-selected' class="btn btn-default" data-ng-disabled="! isROISelected()" data-ng-click="deleteSelected()" title="Delete" type="button"><span class="glyphicon glyphicon-trash"> </span></button>
       </div>
+      </div>
     </div>
     <div style="position: relative" ng-class="{'sr-plot-loading': isLoading(), 'sr-plot-cleared': dataCleared}">
       <canvas ng-attr-style="position: absolute; left: {{ margin.left }}px; top: {{ margin.top }}px;"></canvas>
       <div><svg class="sr-plot" style="position: relative;" ng-attr-width="{{ margin.left + margin.right + canvasSize }}" ng-attr-height="{{ margin.top + margin.bottom + canvasHeight }}">
         <g ng-attr-transform="translate({{ margin.left }},{{ margin.top }})">
           <text x="0" y="-6">{{ dicomTitle() }}</text>
-          <g data-ng-hide="isSubFrame" class="x axis" ng-attr-transform="translate(0, {{ canvasHeight }})">
-            <text class="x-axis-label" ng-attr-x="{{ canvasSize / 2 }}" y="40"></text>
-          </g>
-          <g data-ng-hide="isSubFrame" class="y axis">
-            <text class="y-axis-label" ng-attr-x="{{ - canvasHeight / 2 }}" y="-45" transform="rotate(270)"></text>
-          </g>
           <svg class="plot-viewport" ng-attr-width="{{ canvasSize }}" ng-attr-height="{{ canvasHeight }}">
           <rect class="overlay mouse-zoom" ng-attr-width="{{ canvasSize }}" ng-attr-height="{{ canvasHeight }}"></rect>
           <defs>
@@ -41,5 +37,4 @@
           </svg>
         </g>
       </svg></div>
-      <div data-ng-hide="isSubFrame" data-animation-buttons=""></div>
     </div>
