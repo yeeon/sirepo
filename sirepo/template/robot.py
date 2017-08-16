@@ -78,6 +78,8 @@ def get_animation_name(data):
 def get_application_data(data):
     if data['method'] == 'roi_points':
         return _read_roi_file(data['simulationId'])
+    elif data['method'] == 'update_roi_points':
+        return _update_roi_file(data['simulationId'], data['editedContours'])
     else:
         raise RuntimeError('{}: unknown application data method'.format(data['method']))
 
@@ -115,10 +117,6 @@ def models_related_to_report(data):
     return []
 
 
-def new_simulation(data, new_simulation_data):
-    pass
-
-
 def prepare_aux_files(run_dir, data):
     template_common.copy_lib_files(data, None, run_dir)
 
@@ -126,10 +124,6 @@ def prepare_aux_files(run_dir, data):
 def prepare_for_client(data):
     if _TMP_INPUT_FILE_FIELD in data['models']['simulation']:
         _move_import_file(data)
-    return data
-
-
-def prepare_for_save(data):
     return data
 
 
@@ -479,3 +473,15 @@ def _summarize_rt_structure(simulation, plan):
                     roi['contour'][ct_id] = []
                 roi['contour'][ct_id].append(contour_data)
     simulation_db.write_json(_roi_file(simulation['simulationId']), data)
+
+
+def _update_roi_file(sim_id, contours):
+    data = _read_roi_file(sim_id)
+    rois = data['models']['regionsOfInterest']
+    for roi_number in contours:
+        for frame_id in contours[roi_number]:
+            points = contours[roi_number][frame_id]
+            rois[roi_number]['contour'][frame_id] = points
+    #TODO(pjm): file locking or atomic update
+    simulation_db.write_json(_roi_file(sim_id), data)
+    return {}

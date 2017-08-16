@@ -107,6 +107,16 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
         self.isEditing = ! self.isEditing;
     };
 
+    self.updateROIPoints = function(editedContours) {
+        requestSender.getApplicationData(
+            {
+                method: 'update_roi_points',
+                simulationId: appState.models.simulation.simulationId,
+                editedContours: editedContours,
+            },
+            function(data) {});
+    };
+
     return self;
 });
 
@@ -1189,6 +1199,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                         rois[roiNumber].contour[frameId] = editedContours[roiNumber][frameId];
                     });
                 });
+                robotService.updateROIPoints(editedContours);
                 editedContours = {};
             });
 
