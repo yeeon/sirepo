@@ -22,6 +22,10 @@
         "dicomEditorState": {
             "editCounter": ["Edit Count", "Integer"]
         },
+        "dicomROI": {
+            "name": ["Name", "String"],
+            "color": ["Color", "String"]
+        },
         "dicomSeries": {
             "description": ["Series Description", "String"]
         },
@@ -54,6 +58,13 @@
         "dicomEditorState": {
             "title": "DICOM Editor",
             "advanced": []
+        },
+        "dicomROI": {
+            "title": "Region of Interest",
+            "advanced": [
+                "name",
+                "color"
+            ]
         },
         "dicomWindow": {
             "title": "Dicom Window Aperture",

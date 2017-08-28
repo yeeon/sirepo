@@ -937,9 +937,6 @@ p.hellweg-drop-zone {
 .sr-plot .dicom-dragpath-select {
   cursor: auto;
 }
-.sr-plot .dicom-roimode-select {
-  cursor: auto;
-}
 .sr-plot .dicom-roimode-draw {
   cursor: crosshair;
 }

@@ -479,9 +479,12 @@ def _update_roi_file(sim_id, contours):
     data = _read_roi_file(sim_id)
     rois = data['models']['regionsOfInterest']
     for roi_number in contours:
-        for frame_id in contours[roi_number]:
-            points = contours[roi_number][frame_id]
-            rois[roi_number]['contour'][frame_id] = points
+        if roi_number not in rois:
+            rois[roi_number] = contours[roi_number]
+        else:
+            for frame_id in contours[roi_number]:
+                points = contours[roi_number][frame_id]
+                rois[roi_number]['contour'][frame_id] = points
     #TODO(pjm): file locking or atomic update
     simulation_db.write_json(_roi_file(sim_id), data)
     return {}
