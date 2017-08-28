@@ -20,11 +20,12 @@
             "frameIndex": ["Frame Index", "Integer"]
         },
         "dicomEditorState": {
-            "editCounter": ["Edit Count", "Integer"]
+            "editCounter": ["Edit Count", "Integer"],
+            "selectedPTV": ["PTV", "String"]
         },
         "dicomROI": {
             "name": ["Name", "String"],
-            "color": ["Color", "String"]
+            "color": ["Color", "String", "#ff0000"]
         },
         "dicomSeries": {
             "description": ["Series Description", "String"]

@@ -3,6 +3,7 @@
 var srlog = SIREPO.srlog;
 var srdbg = SIREPO.srdbg;
 
+SIREPO.appLocalRoutes.dose = '/dose/:simulationId';
 SIREPO.PLOTTING_COLOR_MAP = 'grayscale';
 SIREPO.app.config(function($routeProvider, localRoutesProvider) {
     if (SIREPO.IS_LOGGED_OUT) {
@@ -13,6 +14,10 @@ SIREPO.app.config(function($routeProvider, localRoutesProvider) {
         .when(localRoutes.source, {
             controller: 'RobotSourceController as source',
             templateUrl: '/static/html/robot-source.html' + SIREPO.SOURCE_CACHE_KEY,
+        })
+        .when(localRoutes.dose, {
+            controller: 'RobotDoseController as dose',
+            templateUrl: '/static/html/robot-dose.html' + SIREPO.SOURCE_CACHE_KEY,
         });
 });
 
@@ -128,6 +133,10 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
     return self;
 });
 
+SIREPO.app.controller('RobotDoseController', function (appState) {
+    var self = this;
+});
+
 SIREPO.app.controller('RobotSourceController', function (appState, frameCache, persistentSimulation, robotService, $rootScope, $scope) {
     var self = this;
     self.model = 'animation';
@@ -182,7 +191,8 @@ SIREPO.app.directive('appHeader', function(appState, panelState) {
             '<div data-app-header-left="nav"></div>',
             '<ul class="nav navbar-nav navbar-right" data-login-menu=""></ul>',
             '<ul class="nav navbar-nav navbar-right" data-ng-show="isLoaded()">',
-              '<li data-ng-class="{active: nav.isActive(\'source\')}"><a href data-ng-click="nav.openSection(\'source\')"><span class="glyphicon glyphicon-flash"></span> Source</a></li>',
+              '<li data-ng-class="{active: nav.isActive(\'source\')}"><a href data-ng-click="nav.openSection(\'source\')"><span class="glyphicon glyphicon-equalizer"></span> Structure</a></li>',
+              '<li data-ng-class="{active: nav.isActive(\'dose\')}"><a href data-ng-click="nav.openSection(\'dose\')"><span class="glyphicon glyphicon-dashboard"></span> Dose</a></li>',
             '</ul>',
             '<ul class="nav navbar-nav navbar-right" data-ng-show="nav.isActive(\'simulations\')">',
               '<li><a href data-ng-click="importDicomModal()"><span class="glyphicon glyphicon-plus sr-small-icon"></span><span class="glyphicon glyphicon-file"></span> Import DICOM</a></li>',
@@ -217,6 +227,59 @@ SIREPO.app.directive('appFooter', function() {
         ].join(''),
     };
 });
+
+SIREPO.app.directive('computeDoseForm', function(appState, robotService) {
+    return {
+        restrict: 'A',
+        scope: {},
+        template: [
+            '<div style="margin-top: 1ex; margin-bottom: 0;" data-ng-show="hasContours()" class="panel panel-default" novalidate>',
+              '<div class="panel-body">',
+                '<div><p><b>Compute Dose for PTV</b></p></div>',
+                '<select class="form-control" data-ng-model="selectedPTV" data-ng-options="item.roiNumber as item.name for item in roiList"></select>',
+                '<button style="margin-top: 1ex" class="btn btn-default pull-right" data-ng-disabled="! selectedPTV" data-ng-click="updatePTV()">Update</button>',
+
+              '</div>',
+            '</div>',
+        ].join(''),
+        controller: function($scope) {
+            $scope.selectedPTV = null;
+
+            function loadROIPoints() {
+                $scope.roiList = [];
+                var rois = robotService.getROIPoints();
+                Object.keys(rois).forEach(function(roiNumber) {
+                    var roi = rois[roiNumber];
+                    roi.roiNumber = roiNumber;
+                    if (roi.color && roi.contour && ! $.isEmptyObject(roi.contour)) {
+                        $scope.roiList.push(roi);
+                    }
+                });
+                $scope.roiList.sort(function(a, b) {
+                    return a.name.localeCompare(b.name);
+                });
+            }
+
+            $scope.hasContours = function() {
+                return $scope.roiList && $scope.roiList.length;
+            };
+
+            $scope.updatePTV = function() {
+                appState.models.dicomEditorState.selectedPTV = $scope.selectedPTV;
+                appState.saveChanges('dicomEditorState', function() {
+                    //TODO(pjm): submit selectedPTV to server for dose calculation                     
+                });
+            };
+
+            $scope.$on('dicomEditorState.changed', loadROIPoints);
+            $scope.$on('roiPointsLoaded', loadROIPoints);
+            appState.whenModelsLoaded($scope, function() {
+                $scope.selectedPTV = appState.models.dicomEditorState.selectedPTV;
+            });
+        },
+    };
+});
+
 
 SIREPO.app.directive('dicomImportDialog', function(appState, fileUpload, requestSender) {
     return {
@@ -571,7 +634,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                             }
                         });
                         roi.isVisible = points.length ? true : false;
-                        var parent = select('.polygons');
+                        var parent = select('.draw-area');
                         roiContours[roiNumber] = {
                             roi: roi,
                             roiNumber: roiNumber,
@@ -620,16 +683,16 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
 
             function clearContours() {
                 roiContours = null;
-                select().selectAll('.polygons path').remove();
+                select().selectAll('.draw-area path').remove();
             }
 
             function createPlaneLines(axis) {
                 return {
-                    planeLine: select('.polygons')
+                    planeLine: select('.draw-area')
                         .append('line')
                         .attr('class', 'cross-hair')
                         .attr(oppositeAxis(axis) + '1', 0),
-                    dragLine: select('.polygons')
+                    dragLine: select('.draw-area')
                         .append('line')
                         .attr('class', 'plane-dragline plane-dragline-' + axis)
                         .attr(oppositeAxis(axis) + '1', 0)
@@ -697,6 +760,10 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 cacheCanvas.getContext('2d').putImageData(img, 0, 0);
             }
 
+            function isDrawMode() {
+                return robotService.isEditMode('draw') && $scope.isTransversePlane() && ! $scope.isSubFrame;
+            }                
+
             function lineDrag() {
                 /*jshint validthis: true*/
                 var line = d3.select(this);
@@ -757,7 +824,8 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                         .attr('style', roiStyle(v.roi, roiNumber));
                     v.dragPath.attr('d', roiLine)
                         .classed('dicom-dragpath-move', canDrag)
-                        .classed('dicom-dragpath-select', ! canDrag);
+                        .classed('dicom-dragpath-select', ! canDrag)
+                        .classed('selectable-path', ! isDrawMode());
                     if (canDrag) {
                         v.dragPath.call(drag);
                     }
@@ -781,12 +849,12 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                 d3.event.preventDefault();
                 drawPoints = [mousePoint()];
                 var roi = robotService.getActiveROIPoints();
-                drawPath = select('.polygons').append('path')
+                drawPath = select('.draw-area').append('path')
                     .attr('class', 'dicom-roi dicom-roi-selected')
                     .datum(drawPoints)
                     .attr('d', roiLine)
                     .attr('style', roiStyle(roi));
-                select('.polygons').append('circle')
+                select('.draw-area').append('circle')
                    .attr('cx', xAxisScale(drawPoints[0][0]))
                    .attr('cy', yAxisScale(drawPoints[0][1]))
                    .attr('r', 10)
@@ -835,18 +903,19 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
             function redrawIfChanged(newValue, oldValue) {
                 if ($scope.isTransversePlane() && newValue != oldValue) {
                     redrawContours();
+                    updatePlaneLines();
                     resetZoom();
                     updateCursor();
 
                     select('.overlay').on('mousemove', null)
                         .on('mouseup', null)
-                        .on('mousedown', robotService.isEditMode('draw') ? mousedown : null);
+                        .on('mousedown', isDrawMode() ? mousedown : null);
                 }
             }
 
             function updateCursor() {
-                select('.overlay').classed('dicom-roimode-draw', robotService.isEditMode('draw'));
-                select('.overlay').classed('mouse-zoom', robotService.isZoomMode('zoom') && ! robotService.isEditMode('draw'));
+                select('.overlay').classed('dicom-roimode-draw', isDrawMode());
+                select('.overlay').classed('mouse-zoom', robotService.isZoomMode('zoom') && ! isDrawMode());
             }
 
             function refresh() {
@@ -878,7 +947,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     zoom.x(frameScale)
                         .on('zoom', advanceFrame);
                 }
-                if (robotService.isEditMode('draw')) {
+                if (isDrawMode()) {
                     select('.plot-viewport').on('mousedown.zoom', null);
                 }
             }
@@ -1007,7 +1076,8 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                         planeLines[axis][f]
                             .attr(axis + '1', v)
                             .attr(axis + '2', v)
-                            .attr(oppositeAxis(axis) + '2', size);
+                            .attr(oppositeAxis(axis) + '2', size)
+                            .classed('selectable-path', ! isDrawMode());
                     });
                 }
             }
@@ -1398,10 +1468,7 @@ SIREPO.app.directive('roiTable', function(appState, panelState, robotService) {
             };
 
             $scope.newRegion = function() {
-                appState.models.dicomROI = {
-                    name: '',
-                    color: '#ff0000',
-                };
+                appState.models.dicomROI = appState.setModelDefaults({}, 'dicomROI');
                 panelState.showModalEditor('dicomROI');
             };
 

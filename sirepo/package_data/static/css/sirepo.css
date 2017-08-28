@@ -919,7 +919,7 @@ p.hellweg-drop-zone {
   stroke-opacity: 0;
   fill: none;
   stroke-width: 15px;
-  pointer-events: visibleStroke;
+  pointer-events: none;
 }
 .sr-plot .dicom-dragpath:hover {
   stroke-opacity: 0.1;
@@ -929,6 +929,9 @@ p.hellweg-drop-zone {
   stroke-opacity: 0;
   fill: none;
   stroke-width: 15px;
+  pointer-events: none;
+}
+.sr-plot .selectable-path {
   pointer-events: visibleStroke;
 }
 .sr-plot .plane-dragline:hover {
