@@ -43,7 +43,7 @@ SIREPO.app.controller('ShadowBeamlineController', function (appState, beamlineSe
     self.beamlineModels = ['beamline'];
     //TODO(pjm): also KB Mirror and  Monocromator
     //self.toolbarItemNames = ['aperture', 'obstacle', 'crystal', 'grating', 'lens', 'crl', 'mirror', 'watch'];
-    self.toolbarItemNames = ['aperture', 'obstacle', 'crystal', 'grating', 'mirror', 'watch'];
+    self.toolbarItemNames = ['aperture', 'obstacle', 'crystal', 'grating', 'crl', 'mirror', 'watch'];
     self.prepareToSave = function() {};
 
     function updateAutoTuningFields(item) {
@@ -54,6 +54,15 @@ SIREPO.app.controller('ShadowBeamlineController', function (appState, beamlineSe
         panelState.showField(modelName, 'f_phot_cent', item.f_central == '1');
         panelState.showField(modelName, 'phot_cent', item.f_central == '1' && item.f_phot_cent == '0');
         panelState.showField(modelName, 'r_lambda', item.f_central == '1' && item.f_phot_cent == '1');
+    }
+
+    function updateCrlFields(item) {
+        var modelName = item.type;
+        panelState.showField(modelName, 'lensDiameter', item.fhit_c == '1');
+        ['rmirr', 'fcyl', 'useCCC', 'initialCurvature'].forEach(function(f) {
+            panelState.showField(modelName, f, item.fmirr != '5');
+        });
+        panelState.showField(modelName, 'cil_ang', item.fcyl == '1' && item.fmirr != '5');
     }
 
     function updateCrystalFields(item) {
@@ -161,6 +170,9 @@ SIREPO.app.controller('ShadowBeamlineController', function (appState, beamlineSe
             else if (name == 'grating') {
                 updateGratingFields(item);
             }
+            else if (name == 'crl') {
+                updateCrlFields(item);
+            }
         }
     };
 
@@ -175,6 +187,7 @@ SIREPO.app.controller('ShadowBeamlineController', function (appState, beamlineSe
     beamlineService.watchBeamlineField($scope, 'mirror', ['f_reflec', 'f_refl'], updateMirrorReflectivityFields);
     beamlineService.watchBeamlineField($scope, 'crystal', ['f_refrac', 'f_mosaic', 'f_bragg_a', 'f_johansson'], updateCrystalFields);
     beamlineService.watchBeamlineField($scope, 'grating', ['f_ruling', 'f_mono'], updateGratingFields);
+    beamlineService.watchBeamlineField($scope, 'crl', ['fhit_c', 'fmirr', 'fcyl'], updateCrlFields);
 });
 
 SIREPO.app.controller('ShadowSourceController', function(appState, panelState, shadowService, $scope) {
