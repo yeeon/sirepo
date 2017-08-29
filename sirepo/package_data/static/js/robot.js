@@ -267,7 +267,7 @@ SIREPO.app.directive('computeDoseForm', function(appState, robotService) {
             $scope.updatePTV = function() {
                 appState.models.dicomEditorState.selectedPTV = $scope.selectedPTV;
                 appState.saveChanges('dicomEditorState', function() {
-                    //TODO(pjm): submit selectedPTV to server for dose calculation                     
+                    //TODO(pjm): submit selectedPTV to server for dose calculation
                 });
             };
 
@@ -762,7 +762,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
 
             function isDrawMode() {
                 return robotService.isEditMode('draw') && $scope.isTransversePlane() && ! $scope.isSubFrame;
-            }                
+            }
 
             function lineDrag() {
                 /*jshint validthis: true*/
@@ -1208,9 +1208,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
                     updateSelectedDicomPlane(appState.models[$scope.modelName].dicomPlane);
                 }
                 updateCurrentFrame();
-                var newFrameId = json.ImagePositionPatient[2];
-                //TODO(pjm): ensure contours match z coord on available frames
-                //newFrameId = newFrameId.replace(/\.0$/, '');
+                var newFrameId = json.frameId || json.ImagePositionPatient[2];
                 if (frameId != newFrameId) {
                     frameId = newFrameId;
                     roiContours = null;

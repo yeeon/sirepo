@@ -184,11 +184,12 @@ def _extract_series_frames(simulation, dicom_dir):
     selected_series = None
     series_description = ''
     frames = {}
+    rt_struct_path = None
     for path in pkio.walk_tree(dicom_dir):
         if pkio.has_file_extension(str(path), 'dcm'):
             plan = dicom.read_file(str(path))
             if plan.SOPClassUID == _RTSTRUCT_DICOM_CLASS:
-                _summarize_rt_structure(simulation, plan)
+                rt_struct_path = str(path)
             if plan.SOPClassUID != _CT_DICOM_CLASS:
                 continue
             orientation = _float_list(plan.ImageOrientationPatient)
@@ -209,17 +210,25 @@ def _extract_series_frames(simulation, dicom_dir):
             }
             for f in ('StudyInstanceUID', 'SeriesInstanceUID', 'SOPInstanceUID'):
                 info[f] = getattr(plan, f)
-            z = float(info['ImagePositionPatient'][2])
+            z = _frame_id(info['ImagePositionPatient'][2])
+            info['frameId'] = z
             if z in frames:
                 raise RuntimeError('duplicate frame with z coord: {}'.format(z))
             _scale_pixel_data(plan, info['pixels'])
             frames[z] = info
     if not selected_series:
         raise RuntimeError('No series found with {} orientation'.format(_EXPECTED_ORIENTATION))
+    if rt_struct_path:
+        _summarize_rt_structure(simulation, dicom.read_file(rt_struct_path), frames.keys())
     res = []
-    for z in sorted(frames.keys()):
-        res.append(frames[z])
+    for z in sorted(_float_list(frames.keys())):
+        res.append(frames[_frame_id(z)])
     return series_description, res
+
+
+def _frame_id(v):
+    # normalize on float's string format, ex 2 --> '2.0'
+    return str(float(v))
 
 
 def _frame_info(count):
@@ -391,6 +400,7 @@ def _summarize_dicom_series(simulation, frames):
             'ImagePositionPatient': frame['ImagePositionPatient'],
             'PixelSpacing': frame['PixelSpacing'],
             'domain': _calculate_domain(frame),
+            'frameId': frame['frameId'],
         }
         filename = _dicom_path(simulation, 't', idx)
         simulation_db.write_json(filename, res)
@@ -442,7 +452,7 @@ def _summarize_dicom_series(simulation, frames):
         simulation_db.write_json(filename, res)
 
 
-def _summarize_rt_structure(simulation, plan):
+def _summarize_rt_structure(simulation, plan, frame_ids):
     data = {
         'models': {},
     }
@@ -464,9 +474,11 @@ def _summarize_rt_structure(simulation, plan):
                 continue
             if len(contour.ContourData):
                 # the z index is the key
-                ct_id = str(contour.ContourData[2])
+                ct_id = _frame_id(contour.ContourData[2])
+                if ct_id not in frame_ids:
+                    raise RuntimeError('contour z not in frames: {}', ct_id)
                 contour_data = _float_list(contour.ContourData)
-                if len(contour_data) > 3 and float(ct_id) != contour_data[5]:
+                if len(contour_data) > 3 and ct_id != _frame_id(contour_data[5]):
                     raise RuntimeError('expected contour data z to be equal')
                 del contour_data[2::3]
                 if ct_id not in roi['contour']:
