@@ -857,6 +857,10 @@ SIREPO.app.factory('panelState', function(appState, requestSender, simulationQue
         return queueItems[name] && queueItems[name].qState == 'processing' ? true : false;
     };
 
+    self.modalId = function(name) {
+        return 'sr-' + name + '-editor';
+    };
+
     self.pythonSource = function(simulationId, modelName) {
         var args = {
             '<simulation_id>': simulationId,
@@ -916,7 +920,7 @@ SIREPO.app.factory('panelState', function(appState, requestSender, simulationQue
     };
 
     self.showModalEditor = function(modelKey, template, scope) {
-        var editorId = '#sr-' + modelKey + '-editor';
+        var editorId = '#' + self.modalId(modelKey);
 
         if ($(editorId).length) {
             $(editorId).modal('show');
