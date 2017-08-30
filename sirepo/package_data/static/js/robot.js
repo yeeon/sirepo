@@ -86,6 +86,9 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
     };
 
     self.loadROIPoints = function() {
+        if (! appState.isLoaded) {
+            return;
+        }
         appState.whenModelsLoaded($rootScope, function() {
             requestSender.getApplicationData(
                 {
