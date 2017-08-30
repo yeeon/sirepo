@@ -13,6 +13,7 @@ from pykern.pkdebug import pkdc, pkdp
 from sirepo import simulation_db
 from sirepo.template import template_common
 import ctypes
+import datetime
 import dicom
 import glob
 import numpy as np
@@ -34,8 +35,10 @@ _DICOM_MIN_VALUE = -1000
 _EXPECTED_ORIENTATION = np.array([1, 0, 0, 0, 1, 0])
 _INT_SIZE = ctypes.sizeof(ctypes.c_int)
 _PIXEL_FILE = 'pixels3d.dat'
+_RADIASOFT_ID = 'RadiaSoft'
 _ROI_FILE_NAME = 'rs4pi-roi-data.json'
 _RTSTRUCT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.481.3'
+_RTSTRUCT_EXPORT_FILENAME = 'rtstruct.dcm'
 _TMP_INPUT_FILE_FIELD = 'tmpDicomFilePath'
 _TMP_ZIP_DIR = 'tmp-dicom-files'
 _ZIP_FILE_NAME = 'input.zip'
@@ -82,6 +85,22 @@ def get_application_data(data):
         return _update_roi_file(data['simulationId'], data['editedContours'])
     else:
         raise RuntimeError('{}: unknown application data method'.format(data['method']))
+
+
+def get_data_file(run_dir, model, frame, options=None):
+    models = _read_roi_file(options['simulationId'])['models']
+    frame_data = models['dicomFrames']
+    roi_data = models['regionsOfInterest']
+    plan = _create_dicom_dataset(frame_data)
+    _generate_dicom_reference_frame_info(plan, frame_data)
+    _generate_dicom_roi_info(plan, frame_data, roi_data)
+    tmp_dir = simulation_db.tmp_dir()
+    filename = str(tmp_dir.join(_RTSTRUCT_EXPORT_FILENAME))
+    plan.save_as(filename)
+    with open (filename, 'rb') as f:
+        dicom_data = f.read()
+    pkio.unchecked_remove(tmp_dir)
+    return _RTSTRUCT_EXPORT_FILENAME, dicom_data, 'application/octet-stream'
 
 
 def get_simulation_frame(run_dir, data, model_data):
@@ -157,6 +176,17 @@ def _calculate_domain(frame):
     ]
 
 
+def _summarize_frames(frames):
+    res = {}
+    frame0 = frames[0]
+    for n in ('FrameofReferenceUID', 'StudyInstanceUID', 'SeriesInstanceUID'):
+        res[n] = frame0[n]
+    res['SOPInstanceUID'] = []
+    for frame in frames:
+        res['SOPInstanceUID'].append(frame['SOPInstanceUID'])
+    return res
+
+
 def _compute_histogram(simulation, frames):
     pixels = []
     for frame in frames:
@@ -172,7 +202,45 @@ def _compute_histogram(simulation, frames):
             },
         }
     roi_data['models']['dicomHistogram'] = histogram
+    roi_data['models']['dicomFrames'] = _summarize_frames(frames)
     simulation_db.write_json(filename, roi_data)
+
+
+def _create_dicom_dataset(frame_data):
+    sop_uid = dicom.UID.generate_uid()
+
+    file_meta = dicom.dataset.Dataset()
+    file_meta.MediaStorageSOPClassUID = _RTSTRUCT_DICOM_CLASS
+    file_meta.MediaStorageSOPInstanceUID = sop_uid
+    #TODO(pjm): need proper implementation uid
+    file_meta.ImplementationClassUID = "1.2.3.4"
+    file_meta.ImplementationVersionName = 'dcm4che-2.0'
+
+    ds = dicom.dataset.FileDataset('', {}, file_meta=file_meta, preamble=b"\0" * 128)
+    now = datetime.datetime.now()
+    ds.InstanceCreationDate = now.strftime('%Y%m%d')
+    ds.InstanceCreationTime = now.strftime('%H%M%S.%f')
+    ds.SOPClassUID = _RTSTRUCT_DICOM_CLASS
+    ds.SOPInstanceUID = sop_uid
+    ds.StudyDate = ''
+    ds.StudyTime = ''
+    ds.AccessionNumber = ''
+    ds.Modality = 'RTSTRUCT'
+    ds.Manufacturer = _RADIASOFT_ID
+    ds.ReferringPhysiciansName = ''
+    ds.ManufacturersModelName = _RADIASOFT_ID
+    ds.PatientsName = _RADIASOFT_ID
+    ds.PatientID = _RADIASOFT_ID
+    ds.PatientsBirthDate = ''
+    ds.PatientsSex = ''
+    ds.StudyInstanceUID = frame_data['StudyInstanceUID']
+    ds.SeriesInstanceUID = dicom.UID.generate_uid()
+    ds.StudyID = ''
+    ds.SeriesNumber = ''
+    ds.StructureSetLabel = '{} Exported'.format(_RADIASOFT_ID)
+    ds.StructureSetDate = ds.InstanceCreationDate
+    ds.StructureSetTime = ds.InstanceCreationTime
+    return ds
 
 
 def _dicom_path(simulation, plane, idx):
@@ -208,7 +276,7 @@ def _extract_series_frames(simulation, dicom_dir):
                 'ImageOrientationPatient': _float_list(plan.ImageOrientationPatient),
                 'PixelSpacing': _float_list(plan.PixelSpacing),
             }
-            for f in ('StudyInstanceUID', 'SeriesInstanceUID', 'SOPInstanceUID'):
+            for f in ('FrameofReferenceUID', 'StudyInstanceUID', 'SeriesInstanceUID', 'SOPInstanceUID'):
                 info[f] = getattr(plan, f)
             z = _frame_id(info['ImagePositionPatient'][2])
             info['frameId'] = z
@@ -244,6 +312,59 @@ def _float_list(ar):
 
 def _frame_file_name(plane, index):
     return plane + str(index).zfill(5)
+
+
+def _generate_dicom_reference_frame_info(plan, frame_data):
+    ref_ds = dicom.dataset.Dataset()
+    ref_ds.FrameOfReferenceUID = frame_data['FrameofReferenceUID']
+    study_ds = dicom.dataset.Dataset()
+    study_ds.ReferencedSOPClassUID = '1.2.840.10008.3.1.2.3.1'
+    study_ds.ReferencedSOPInstanceUID = frame_data['StudyInstanceUID']
+    series_ds = dicom.dataset.Dataset()
+    series_ds.SeriesInstanceUID = frame_data['SeriesInstanceUID']
+    series_ds.ContourImageSequence = []
+    for uid in frame_data['SOPInstanceUID']:
+        instance_ds = dicom.dataset.Dataset()
+        instance_ds.ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
+        instance_ds.ReferencedSOPInstanceUID = uid
+        series_ds.ContourImageSequence.append(instance_ds)
+    study_ds.RTReferencedSeriesSequence = [series_ds]
+    ref_ds.RTReferencedStudySequence = [study_ds]
+    plan.ReferencedFrameOfReferenceSequence = [ref_ds]
+
+
+def _generate_dicom_roi_info(plan, frame_data, roi_data):
+    plan.StructureSetROISequence = []
+    plan.ROIContourSequence = []
+
+    for roi_number in sorted(roi_data.keys()):
+        roi = roi_data[roi_number]
+        roi_ds = dicom.dataset.Dataset()
+        roi_ds.ROINumber = roi_number
+        roi_ds.ROIName = roi['name']
+        roi_ds.ReferencedFrameofReferenceUID = frame_data['FrameofReferenceUID']
+        plan.StructureSetROISequence.append(roi_ds)
+
+        contour_ds = dicom.dataset.Dataset()
+        contour_ds.ReferencedROINumber = roi_number
+        contour_ds.ROIDisplayColor = _string_list(roi['color'])
+        contour_ds.ContourSequence = []
+        image_num = 1
+
+        for frame_id in sorted(_float_list(roi['contour'].keys())):
+            for points in roi['contour'][str(frame_id)]:
+                image_ds = dicom.dataset.Dataset()
+                image_ds.ContourGeometricType = 'CLOSED_PLANAR'
+                image_ds.ContourNumber = str(image_num)
+                image_num += 1
+                image_ds.ContourData = []
+                for i in range(0, len(points), 2):
+                    image_ds.ContourData.append(str(points[i]))
+                    image_ds.ContourData.append(str(points[i + 1]))
+                    image_ds.ContourData.append(str(frame_id))
+                image_ds.NumberofContourPoints = str(int(len(image_ds.ContourData) / 3))
+                contour_ds.ContourSequence.append(image_ds)
+        plan.ROIContourSequence.append(contour_ds)
 
 
 def _histogram_from_pixels(pixels):
