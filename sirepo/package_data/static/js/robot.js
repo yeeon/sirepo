@@ -29,8 +29,9 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
         c: 'y',
     };
     var dicomHistogram = {};
-    var roiPoints = {};
     var planeCoord = {};
+    var roiPoints = {};
+    var simulationId = null;
     // zoom or advanceFrame
     self.zoomMode = 'advanceFrame';
     self.isEditing = false;
@@ -74,6 +75,20 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
         return roiPoints;
     };
 
+    self.hasROIContours = function() {
+        for (var roiNumber in roiPoints) {
+            var roi = roiPoints[roiNumber];
+            if (roi.contour) {
+                for (var frameId in roi.contour) {
+                    if (roi.contour[frameId].length) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
     self.isEditMode = function(mode) {
         if (self.isEditing) {
             return self.editMode == mode;
@@ -86,21 +101,24 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
     };
 
     self.loadROIPoints = function() {
-        if (! appState.isLoaded) {
+        if (simulationId == appState.models.simulation.simulationId) {
+            $rootScope.$broadcast('roiPointsLoaded');
             return;
         }
-        appState.whenModelsLoaded($rootScope, function() {
-            requestSender.getApplicationData(
-                {
-                    method: 'roi_points',
-                    simulationId: appState.models.simulation.simulationId,
-                },
-                function(data) {
-                    dicomHistogram = data.models.dicomHistogram;
-                    roiPoints = data.models.regionsOfInterest;
-                    $rootScope.$broadcast('roiPointsLoaded');
-                });
-        });
+        requestSender.getApplicationData(
+            {
+                method: 'roi_points',
+                simulationId: appState.models.simulation.simulationId,
+            },
+            function(data) {
+                if (! appState.isLoaded()) {
+                    return;
+                }
+                simulationId = appState.models.simulation.simulationId;
+                dicomHistogram = data.models.dicomHistogram;
+                roiPoints = data.models.regionsOfInterest;
+                $rootScope.$broadcast('roiPointsLoaded');
+            });
     };
 
     self.setEditMode = function(mode) {
@@ -136,13 +154,17 @@ SIREPO.app.factory('robotService', function(appState, frameCache, requestSender,
     return self;
 });
 
-SIREPO.app.controller('RobotDoseController', function (appState) {
+SIREPO.app.controller('RobotDoseController', function (appState, robotService, $scope) {
     var self = this;
+
+    appState.whenModelsLoaded($scope, function() {
+        robotService.loadROIPoints();
+    });
 });
 
 SIREPO.app.controller('RobotSourceController', function (appState, frameCache, persistentSimulation, robotService, $rootScope, $scope) {
     var self = this;
-    self.model = 'animation';
+    self.model = 'dicomAnimation';
 
     self.dicomTitle = function() {
         if (! appState.isLoaded()) {
@@ -170,17 +192,19 @@ SIREPO.app.controller('RobotSourceController', function (appState, frameCache, p
         dicomAnimation3: ['dicomPlane', 'startTime'],
     });
 
-    robotService.loadROIPoints();
-
     $scope.$on('cancelChanges', function(e, name) {
         if (name == 'dicomEditorState') {
             $rootScope.$broadcast('roiPointsLoaded');
         }
     });
 
+    appState.whenModelsLoaded($scope, function() {
+        robotService.loadROIPoints();
+    });
+
 });
 
-SIREPO.app.directive('appHeader', function(appState, panelState) {
+SIREPO.app.directive('appHeader', function(appState, panelState, robotService) {
     return {
         restrict: 'A',
         scope: {
@@ -195,7 +219,7 @@ SIREPO.app.directive('appHeader', function(appState, panelState) {
             '<ul class="nav navbar-nav navbar-right" data-login-menu=""></ul>',
             '<ul class="nav navbar-nav navbar-right" data-ng-show="isLoaded()">',
               '<li data-ng-class="{active: nav.isActive(\'source\')}"><a href data-ng-click="nav.openSection(\'source\')"><span class="glyphicon glyphicon-equalizer"></span> Structure</a></li>',
-              '<li data-ng-class="{active: nav.isActive(\'dose\')}"><a href data-ng-click="nav.openSection(\'dose\')"><span class="glyphicon glyphicon-dashboard"></span> Dose</a></li>',
+              '<li data-ng-show="hasROIContours()" data-ng-class="{active: nav.isActive(\'dose\')}"><a href data-ng-click="nav.openSection(\'dose\')"><span class="glyphicon glyphicon-dashboard"></span> Dose</a></li>',
             '</ul>',
             '<ul class="nav navbar-nav navbar-right" data-ng-show="nav.isActive(\'simulations\')">',
               '<li><a href data-ng-click="importDicomModal()"><span class="glyphicon glyphicon-plus sr-small-icon"></span><span class="glyphicon glyphicon-file"></span> Import DICOM</a></li>',
@@ -203,6 +227,9 @@ SIREPO.app.directive('appHeader', function(appState, panelState) {
             '</ul>',
         ].join(''),
         controller: function($scope) {
+            $scope.hasROIContours = function() {
+                return robotService.hasROIContours();
+            };
             $scope.isLoaded = function() {
                 if ($scope.nav.isActive('simulations')) {
                     return false;
@@ -231,12 +258,12 @@ SIREPO.app.directive('appFooter', function() {
     };
 });
 
-SIREPO.app.directive('computeDoseForm', function(appState, robotService) {
+SIREPO.app.directive('computeDoseForm', function(appState, persistentSimulation, robotService) {
     return {
         restrict: 'A',
         scope: {},
         template: [
-            '<div style="margin-top: 1ex; margin-bottom: 0;" data-ng-show="hasContours()" class="panel panel-default" novalidate>',
+            '<div style="margin-top: 1ex; margin-bottom: 0;" class="panel panel-default" novalidate>',
               '<div class="panel-body">',
                 '<div><p><b>Compute Dose for PTV</b></p></div>',
                 '<select class="form-control" data-ng-model="selectedPTV" data-ng-options="item.roiNumber as item.name for item in roiList"></select>',
@@ -247,6 +274,7 @@ SIREPO.app.directive('computeDoseForm', function(appState, robotService) {
         ].join(''),
         controller: function($scope) {
             $scope.selectedPTV = null;
+            $scope.model = 'doseCalculation';
 
             function loadROIPoints() {
                 $scope.roiList = [];
@@ -263,21 +291,23 @@ SIREPO.app.directive('computeDoseForm', function(appState, robotService) {
                 });
             }
 
-            $scope.hasContours = function() {
-                return $scope.roiList && $scope.roiList.length;
+            $scope.handleStatus = function(data) {
+                //TODO(pjm): handle dose computation results here
             };
 
             $scope.updatePTV = function() {
                 appState.models.dicomEditorState.selectedPTV = $scope.selectedPTV;
                 appState.saveChanges('dicomEditorState', function() {
-                    //TODO(pjm): submit selectedPTV to server for dose calculation
+                    $scope.runSimulation();
                 });
             };
 
-            $scope.$on('dicomEditorState.changed', loadROIPoints);
             $scope.$on('roiPointsLoaded', loadROIPoints);
             appState.whenModelsLoaded($scope, function() {
                 $scope.selectedPTV = appState.models.dicomEditorState.selectedPTV;
+            });
+            persistentSimulation.initProperties($scope, $scope, {
+                doseCalculation: [],
             });
         },
     };
@@ -967,7 +997,7 @@ SIREPO.app.directive('dicomPlot', function(appState, frameCache, panelState, plo
             function roiDrag(d) {
                 /*jshint validthis: true*/
                 if (! robotService.isEditing || ! robotService.isEditMode('select')) {
-                    console.log('roiDrag not select mode');
+                    srlog('roiDrag not select mode');
                     return;
                 }
                 var dx = d3.event.dx;

@@ -24,8 +24,8 @@ import struct
 import werkzeug
 import zipfile
 
+RTSTRUCT_EXPORT_FILENAME = 'rtstruct.dcm'
 SIM_TYPE = 'robot'
-
 WANT_BROWSER_FRAME_CACHE = True
 
 _DICOM_CLASS = {
@@ -41,13 +41,13 @@ _INT_SIZE = ctypes.sizeof(ctypes.c_int)
 _PIXEL_FILE = 'pixels3d.dat'
 _RADIASOFT_ID = 'RadiaSoft'
 _ROI_FILE_NAME = 'rs4pi-roi-data.json'
-_RTSTRUCT_EXPORT_FILENAME = 'rtstruct.dcm'
 _TMP_INPUT_FILE_FIELD = 'tmpDicomFilePath'
 _TMP_ZIP_DIR = 'tmp-dicom-files'
 _ZIP_FILE_NAME = 'input.zip'
 
 
 def background_percent_complete(report, run_dir, is_running, schema):
+    pkdp('report: {}', report)
     data_path = run_dir.join(template_common.INPUT_BASE_NAME)
     if not os.path.exists(str(simulation_db.json_filename(data_path))):
         return {
@@ -77,8 +77,22 @@ def fixup_old_data(data):
         data['models']['dicomEditorState'] = {}
 
 
+def generate_rtstruct_file(sim_dir, target_dir):
+    models = simulation_db.read_json(sim_dir.join(_ROI_FILE_NAME))['models']
+    frame_data = models['dicomFrames']
+    roi_data = models['regionsOfInterest']
+    plan = _create_dicom_dataset(frame_data)
+    _generate_dicom_reference_frame_info(plan, frame_data)
+    _generate_dicom_roi_info(plan, frame_data, roi_data)
+    filename = str(target_dir.join(RTSTRUCT_EXPORT_FILENAME))
+    plan.save_as(filename)
+    return filename
+
+
 def get_animation_name(data):
-    return 'animation'
+    if data['modelName'].startswith('dicomAnimation'):
+        return 'dicomAnimation'
+    return data['modelName']
 
 
 def get_application_data(data):
@@ -90,20 +104,13 @@ def get_application_data(data):
         raise RuntimeError('{}: unknown application data method'.format(data['method']))
 
 
-def get_data_file(run_dir, model, frame, options=None):
-    models = _read_roi_file(options['simulationId'])['models']
-    frame_data = models['dicomFrames']
-    roi_data = models['regionsOfInterest']
-    plan = _create_dicom_dataset(frame_data)
-    _generate_dicom_reference_frame_info(plan, frame_data)
-    _generate_dicom_roi_info(plan, frame_data, roi_data)
+def get_data_file(run_dir, model, frame, **kwargs):
     tmp_dir = simulation_db.tmp_dir()
-    filename = str(tmp_dir.join(_RTSTRUCT_EXPORT_FILENAME))
-    plan.save_as(filename)
+    filename = generate_rtstruct_file(run_dir.join('..'), tmp_dir)
     with open (filename, 'rb') as f:
         dicom_data = f.read()
     pkio.unchecked_remove(tmp_dir)
-    return _RTSTRUCT_EXPORT_FILENAME, dicom_data, 'application/octet-stream'
+    return RTSTRUCT_EXPORT_FILENAME, dicom_data, 'application/octet-stream'
 
 
 def get_simulation_frame(run_dir, data, model_data):
@@ -177,17 +184,6 @@ def _calculate_domain(frame):
             position[2],
         ],
     ]
-
-
-def _summarize_frames(frames):
-    res = {}
-    frame0 = frames[0]
-    for n in ('FrameofReferenceUID', 'StudyInstanceUID', 'SeriesInstanceUID'):
-        res[n] = frame0[n]
-    res['SOPInstanceUID'] = []
-    for frame in frames:
-        res['SOPInstanceUID'].append(frame['SOPInstanceUID'])
-    return res
 
 
 def _compute_histogram(simulation, frames):
@@ -574,6 +570,17 @@ def _summarize_dicom_series(simulation, frames):
         res['domain'] = _calculate_domain(res)
         filename = _dicom_path(simulation, 's', idx)
         simulation_db.write_json(filename, res)
+
+
+def _summarize_frames(frames):
+    res = {}
+    frame0 = frames[0]
+    for n in ('FrameofReferenceUID', 'StudyInstanceUID', 'SeriesInstanceUID'):
+        res[n] = frame0[n]
+    res['SOPInstanceUID'] = []
+    for frame in frames:
+        res['SOPInstanceUID'].append(frame['SOPInstanceUID'])
+    return res
 
 
 def _summarize_rt_structure(simulation, plan, frame_ids):
