@@ -28,7 +28,11 @@ SIM_TYPE = 'robot'
 
 WANT_BROWSER_FRAME_CACHE = True
 
-_CT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.2'
+_DICOM_CLASS = {
+    'CT_IMAGE': '1.2.840.10008.5.1.4.1.1.2',
+    'RT_STRUCT': '1.2.840.10008.5.1.4.1.1.481.3',
+    'DETATCHED_STUDY': '1.2.840.10008.3.1.2.3.1',
+}
 _DICOM_DIR = 'dicom'
 _DICOM_MAX_VALUE = 1000
 _DICOM_MIN_VALUE = -1000
@@ -37,7 +41,6 @@ _INT_SIZE = ctypes.sizeof(ctypes.c_int)
 _PIXEL_FILE = 'pixels3d.dat'
 _RADIASOFT_ID = 'RadiaSoft'
 _ROI_FILE_NAME = 'rs4pi-roi-data.json'
-_RTSTRUCT_DICOM_CLASS = '1.2.840.10008.5.1.4.1.1.481.3'
 _RTSTRUCT_EXPORT_FILENAME = 'rtstruct.dcm'
 _TMP_INPUT_FILE_FIELD = 'tmpDicomFilePath'
 _TMP_ZIP_DIR = 'tmp-dicom-files'
@@ -210,7 +213,7 @@ def _create_dicom_dataset(frame_data):
     sop_uid = dicom.UID.generate_uid()
 
     file_meta = dicom.dataset.Dataset()
-    file_meta.MediaStorageSOPClassUID = _RTSTRUCT_DICOM_CLASS
+    file_meta.MediaStorageSOPClassUID = _DICOM_CLASS['RT_STRUCT']
     file_meta.MediaStorageSOPInstanceUID = sop_uid
     #TODO(pjm): need proper implementation uid
     file_meta.ImplementationClassUID = "1.2.3.4"
@@ -220,7 +223,7 @@ def _create_dicom_dataset(frame_data):
     now = datetime.datetime.now()
     ds.InstanceCreationDate = now.strftime('%Y%m%d')
     ds.InstanceCreationTime = now.strftime('%H%M%S.%f')
-    ds.SOPClassUID = _RTSTRUCT_DICOM_CLASS
+    ds.SOPClassUID = _DICOM_CLASS['RT_STRUCT']
     ds.SOPInstanceUID = sop_uid
     ds.StudyDate = ''
     ds.StudyTime = ''
@@ -256,9 +259,9 @@ def _extract_series_frames(simulation, dicom_dir):
     for path in pkio.walk_tree(dicom_dir):
         if pkio.has_file_extension(str(path), 'dcm'):
             plan = dicom.read_file(str(path))
-            if plan.SOPClassUID == _RTSTRUCT_DICOM_CLASS:
+            if plan.SOPClassUID == _DICOM_CLASS['RT_STRUCT']:
                 rt_struct_path = str(path)
-            if plan.SOPClassUID != _CT_DICOM_CLASS:
+            if plan.SOPClassUID != _DICOM_CLASS['CT_IMAGE']:
                 continue
             orientation = _float_list(plan.ImageOrientationPatient)
             if not (_EXPECTED_ORIENTATION == orientation).all():
@@ -318,14 +321,14 @@ def _generate_dicom_reference_frame_info(plan, frame_data):
     ref_ds = dicom.dataset.Dataset()
     ref_ds.FrameOfReferenceUID = frame_data['FrameofReferenceUID']
     study_ds = dicom.dataset.Dataset()
-    study_ds.ReferencedSOPClassUID = '1.2.840.10008.3.1.2.3.1'
+    study_ds.ReferencedSOPClassUID = _DICOM_CLASS['DETATCHED_STUDY']
     study_ds.ReferencedSOPInstanceUID = frame_data['StudyInstanceUID']
     series_ds = dicom.dataset.Dataset()
     series_ds.SeriesInstanceUID = frame_data['SeriesInstanceUID']
     series_ds.ContourImageSequence = []
     for uid in frame_data['SOPInstanceUID']:
         instance_ds = dicom.dataset.Dataset()
-        instance_ds.ReferencedSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'
+        instance_ds.ReferencedSOPClassUID = _DICOM_CLASS['CT_IMAGE']
         instance_ds.ReferencedSOPInstanceUID = uid
         series_ds.ContourImageSequence.append(instance_ds)
     study_ds.RTReferencedSeriesSequence = [series_ds]
