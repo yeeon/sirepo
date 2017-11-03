@@ -13,6 +13,10 @@
             "longName": "Hellweg",
             "shortName": "Hellweg"
         },
+        "opal": {
+            "longName": "OPAL",
+            "shortName": "OPAL"
+        },
         "rs4pi": {
             "longName": "RS4PI",
             "shortName": "RS4PI"

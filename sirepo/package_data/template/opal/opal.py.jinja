@@ -1,0 +1,81 @@
+# {{simulation_name}}
+
+input_file = """
+OPTION, ECHO=FALSE;
+OPTION, INFO=TRUE;  //psdump and statdump are in time steps
+OPTION, PSDUMPFREQ = 100;  //How often 6d info is dumped to .h5
+OPTION, STATDUMPFREQ = 10; //How often beam stats dumped to .stat.
+OPTION, VERSION = 10600;
+
+Beam1: BEAM, PARTICLE = {{beam_particle}}, pc = P0, NPART = {{beam_npart}}, BFREQ = {{beam_bfreq}},
+       BCURRENT = {{beam_bcurrent}}, MASS = {{beam_mass}}, CHARGE = {{beam_charge}};
+
+Fs1: Fieldsolver, FSTYPE = NONE,
+    MX = 32, MY = 32, MT = 32,
+    PARFFTX = false,
+    PARFFTY = false,
+    PARFFTT = true,
+    BCFFTX = open,
+    BCFFTY = open,
+    BCFFTT = open,
+    BBOXINCR = 1,
+    GREENSF = INTEGRATED;
+
+Dist1: DISTRIBUTION, DISTRIBUTION = {{distribution_type}},
+{% if distribution_type == 'FROMFILE' %}
+  FNAME = "{{distribution_fromFile}}",
+{% elif distribution_type == 'GAUSS' %}
+  SIGMAX = {{distribution_gaussian_sigmax}},
+  SIGMAY = {{distribution_gaussian_sigmay}},
+  SIGMAR = {{distribution_gaussian_sigmar}},
+  SIGMAZ = {{distribution_gaussian_sigmaz}},
+  SIGMAPX = {{distribution_gaussian_sigmapx}},
+  SIGMAPY = {{distribution_gaussian_sigmapy}},
+  SIGMAPZ = {{distribution_gaussian_sigmapz}},
+  CUTOFFX = {{distribution_gaussian_cutoffx}},
+  CUTOFFY = {{distribution_gaussian_cutoffy}},
+  CUTOFFR = {{distribution_gaussian_cutoffr}},
+  CUTOFFLONG = {{distribution_gaussian_cutofflong}},
+  CUTOFFPX = {{distribution_gaussian_cutoffpx}},
+  CUTOFFPY = {{distribution_gaussian_cutoffpy}},
+  CUTOFFPZ = {{distribution_gaussian_cutoffpz}},
+{% elif distribution_type == 'FLATTOP' %}
+  SIGMAX = {{distribution_flattop_sigmax}},
+  SIGMAY = {{distribution_flattop_sigmay}},
+  SIGMAR = {{distribution_flattop_sigmar}},
+  SIGMAZ = {{distribution_flattop_sigmaz}},
+{% elif distribution_type == 'BINOMIAL' %}
+  MX = {{distribution_binomial_mx}},
+  MY = {{distribution_binomial_my}},
+  MZ = {{distribution_binomial_mz}},
+  SIGMAX = {{distribution_binomial_sigmax}},
+  SIGMAY = {{distribution_binomial_sigmay}},
+  SIGMAZ = {{distribution_binomial_sigmaz}},
+  SIGMAPX = {{distribution_binomial_sigmapx}},
+  SIGMAPY = {{distribution_binomial_sigmapy}},
+  SIGMAPZ = {{distribution_binomial_sigmapz}},
+{% endif %}
+  XMULT = {{distribution_xmult}},
+  YMULT = {{distribution_ymult}},
+  //ZMULT = {{distribution_zmult}},
+  PXMULT = {{distribution_pxmult}},
+  PYMULT = {{distribution_pymult}},
+  PZMULT = {{distribution_pzmult}},
+  OFFSETX = {{distribution_offsetx}},
+  OFFSETY = {{distribution_offsety}},
+  OFFSETZ = {{distribution_offsetz}},
+  OFFSETPX = {{distribution_offsetpx}},
+  OFFSETPY = {{distribution_offsetpy}},
+  OFFSETPZ = {{distribution_offsetpz}};
+
+DR1:    DRIFT, L = 0.4, ELEMEDGE = 0.0;
+DriftTest: Line = (DR1);
+
+TRACK, LINE = DriftTest, BEAM = BEAM1, MAXSTEPS = 0, DT = {5.0e-12};
+  RUN, METHOD = "PARALLEL-T", BEAM = Beam1, FIELDSOLVER = Fs1, DISTRIBUTION = Dist1;
+ENDTRACK;
+
+Stop;
+Quit;
+
+"""

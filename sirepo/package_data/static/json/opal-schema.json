@@ -1,0 +1,209 @@
+{
+    "enum": {
+        "Boolean": [
+            ["0", "No"],
+            ["1", "Yes"]
+        ],
+        "DistributionType": [
+            ["FROMFILE", "Distribution Input File"],
+            ["GAUSS", "Gaussian"],
+            ["FLATTOP", "Flat Top"],
+            ["BINOMIAL", "Binomial"]
+        ],
+        "ParticleName": [
+            ["POSITRON", "Positron"],
+            ["ELECTRON", "Electron"],
+            ["PROTON", "Proton"],
+            ["ANTIPROTON", "Anti-proton"],
+            ["HMINUS", "H- Proton"],
+            ["CARBON", "Carbon"],
+            ["URANIUM", "Uranium"],
+            ["MUON", "Muon"],
+            ["DEUTERON", "Deuteron"],
+            ["XENON", "Xenon"],
+            ["other", "Other"]
+        ],
+        "PhaseSpaceCoordinate": [
+            ["x", "x"],
+            ["px", "Px"],
+            ["y", "y"],
+            ["py", "Py"],
+            ["z", "z"],
+            ["pz", "Pz"],
+            ["q", "q"]
+        ]
+    },
+    "model": {
+        "beam": {
+            "particle": ["Particle Name", "ParticleName"],
+            "mass": ["Particle Mass [GeV]", "Float"],
+            "charge": ["Particle Charge", "Float", "", "The particle charge expressed in elementary charges."],
+            "bfreq": ["Bunch Frequency [MHz]", "Float"],
+            "bcurrent": ["Bunch Current [A]", "Float"],
+            "npart": ["Number of Macro Particles", "Integer"]
+        },
+        "bunchReport": {
+            "x": ["X Value", "PhaseSpaceCoordinate"],
+            "y": ["Y Value", "PhaseSpaceCoordinate"],
+            "histogramBins": ["Histogram Bins", "Integer"]
+        },
+        "distribution": {
+            "type": ["Distribution Type", "DistributionType"],
+            "xmult": ["X Scale", "Float", 1.0, "Multiplier for x dimension."],
+            "ymult": ["Y Scale", "Float", 1.0, "Multiplier for y dimension."],
+            "zmult": ["Z Scale", "Float", 1.0, "Multiplier for z dimension."],
+            "pxmult": ["Px Scale", "Float", 1.0, "Multiplier for px dimension."],
+            "pymult": ["Py Scale", "Float", 1.0, "Multiplier for py dimension."],
+            "pzmult": ["Pz Scale", "Float", 1.0, "Multiplier for pz dimension."],
+            "offsetx": ["X Offset [m]", "Float", 0.0, "Average x offset of distribution."],
+            "offsety": ["Y Offset [m]", "Float", 0.0, "Average y offset of distribution."],
+            "offsetz": ["Z Offset [m]", "Float", 0.0, "Average z offset of distribution."],
+            "offsetpx": ["Px Offset", "Float", 0.0, "Average px offset of distribution."],
+            "offsetpy": ["Py Offset", "Float", 0.0, "Average py offset of distribution."],
+            "offsetpz": ["Pz Offset", "Float", 0.0, "Average pz offset of distribution."],
+
+            "fromFile": ["Distribution File", "InputFile", "", "File format: N is the number of particles in the file.<hr><table width=\"100%\"><tr><td>N</td></tr><td>x</td><td>px</td><td>y</td><td>py</td><td>z</td><td>pz</td></tr><tr><td>...</td></tr></table>"],
+
+            "gaussian_sigmax": ["Sigma X [m]", "Float", 0.0, "RMS width in transverse x direction."],
+            "gaussian_sigmay": ["Sigma Y [m]", "Float", 0.0, "RMS width in transverse y direction."],
+            "gaussian_sigmar": ["Sigma R [m]", "Float", 0.0, "RMS radius in radial direction. If nonzero SIGMAR overrides SIGMAX and SIGMAY."],
+            "gaussian_sigmaz": ["Sigma Z [m]", "Float", 0.0, "RMS length in longitudinal (z) direction."],
+            "gaussian_sigmapx": ["Sigma Px", "Float", 0.0],
+            "gaussian_sigmapy": ["Sigma Py", "Float", 0.0],
+            "gaussian_sigmapz": ["Sigma Pz", "Float", 0.0],
+            "gaussian_cutoffx": ["Cutoff X", "Float", 3.0, "Defines transverse distribution cutoff in the x direction in units of x. If CUTOFFX = 0 then actual cutoff in x is set to infinity."],
+            "gaussian_cutoffy": ["Cutoff Y", "Float", 3.0, "Defines transverse distribution cutoff in the y direction in units of y. If CUTOFFY = 0 then actual cutoff in y is set to infinity."],
+            "gaussian_cutoffr": ["Cutoff R", "Float", 3.0, "Defines transverse distribution cutoff in the r direction in units of r. If CUTOFFR = 0 then actual cutoff in r is set to infinity. CUTOFFR is only used if SIGMAR > 0."],
+            "gaussian_cutofflong": ["Cutoff Longitude", "Float", 3.0, "Defines longitudinal distribution cutoff. CUTOFFLONG is different from other dimensions in that a value of 0.0 does not imply a cutoff value of infinity."],
+            "gaussian_cutoffpx": ["Cutoff Px", "Float",  3.0, "Distribution cutoff px dimension in units of sigma."],
+            "gaussian_cutoffpy": ["Cutoff Py", "Float", 3.0, "Distribution cutoff py dimension in units of sigma."],
+            "gaussian_cutoffpz": ["Cutoff Pz", "Float", 3.0, "Distribution cutoff pz dimension in units of sigma."],
+
+            "flattop_sigmax": ["X Width [m]", "Float", 0.0, "Hard edge width in x direction."],
+            "flattop_sigmay": ["Y Width [m]", "Float", 0.0, "Hard edge width in y direction."],
+            "flattop_sigmar": ["Radius [m]", "Float", 0.0, "Hard edge radius. If nonzero SIGMAR overrides SIGMAX and SIGMAY."],
+            "flattop_sigmaz": ["Z Length [m]", "Float", 0.0, "Hard edge length in z direction."],
+
+            "binomial_mx": ["MX", "Float", 0.0, "The shape of the binomial distribution is govered by one parameter, m.<br><br><table width=\"100%\"><tr><td>0.0</td><td>Hollow shell</td></tr><tr><td>0.5</td><td>Flat profile</td></tr><tr><td>1.0</td><td>Uniform</td></tr><tr><td>1.5</td><td>Elliptical</td></tr><tr><td>2.0</td><td>Parabolic</td></tr><tr><td>→ ∞</td><td>Gaussian</td></tr></table>"],
+            "binomial_my": ["MY", "Float", 0.0],
+            "binomial_mz": ["MZ", "Float", 0.0],
+            "binomial_sigmax": ["Sigma X [m]", "Float", 0.0],
+            "binomial_sigmay": ["Sigma Y [m]", "Float", 0.0],
+            "binomial_sigmaz": ["Sigma Z [m]", "Float", 0.0],
+            "binomial_sigmapx": ["Sigma Px", "Float", 0.0],
+            "binomial_sigmapy": ["Sigma Py", "Float", 0.0],
+            "binomial_sigmapz": ["Sigma Pz", "Float", 0.0]
+        },
+        "fieldSolver": {
+        },
+        "simulation": {}
+    },
+    "view": {
+        "beam": {
+            "title": "Beam",
+            "basic": [
+                "particle",
+                "mass",
+                "charge",
+                "bfreq",
+                "bcurrent",
+                "npart"
+            ],
+            "advanced": []
+        },
+        "bunchReport": {
+            "title": "Bunch Report",
+            "advanced": [
+                "x",
+                "y",
+                "histogramBins"
+            ]
+        },
+        "distribution": {
+            "title": "Distribution",
+            "basic": [
+                "type",
+                "fromFile",
+                "gaussian_sigmax",
+                "gaussian_sigmay",
+                "gaussian_sigmar",
+                "gaussian_sigmaz",
+                "gaussian_sigmapx",
+                "gaussian_sigmapy",
+                "gaussian_sigmapz",
+                "flattop_sigmax",
+                "flattop_sigmay",
+                "flattop_sigmaz", 
+                "binomial_mx",
+                "binomial_my",
+                "binomial_mz",
+                "binomial_sigmax",
+                "binomial_sigmay",
+                "binomial_sigmaz",
+                "binomial_sigmapx",
+                "binomial_sigmapy",
+                "binomial_sigmapz"
+            ],
+            "advanced": [
+                ["Main", [
+                    "type",
+                    "fromFile",
+
+                    "gaussian_sigmax",
+                    "gaussian_sigmay",
+                    "gaussian_sigmar",
+                    "gaussian_sigmaz",
+                    "gaussian_sigmapx",
+                    "gaussian_sigmapy",
+                    "gaussian_sigmapz",
+
+                    "flattop_sigmax",
+                    "flattop_sigmay",
+                    "flattop_sigmar",
+                    "flattop_sigmaz",
+
+                    "binomial_mx",
+                    "binomial_my",
+                    "binomial_mz",
+                    "binomial_sigmax",
+                    "binomial_sigmay",
+                    "binomial_sigmaz",
+                    "binomial_sigmapx",
+                    "binomial_sigmapy",
+                    "binomial_sigmapz"
+                ]],
+                ["Cutoff", [
+                    "gaussian_cutoffx",
+                    "gaussian_cutoffy",
+                    "gaussian_cutoffr",
+                    "gaussian_cutofflong",
+                    "gaussian_cutoffpx",
+                    "gaussian_cutoffpy",
+                    "gaussian_cutoffpz"
+                ]],
+                ["Scale", [
+                    "xmult",
+                    "ymult",
+                    "zmult",
+                    "pxmult",
+                    "pymult",
+                    "pzmult"
+                ]],
+                ["Offset", [
+                    "offsetx",
+                    "offsety",
+                    "offsetz",
+                    "offsetpx",
+                    "offsetpy",
+                    "offsetpz"
+                ]]
+            ]
+        },
+        "simulation": {
+            "title": "Simulation",
+            "advanced": [
+                "name"
+            ]
+        }
+    }
+}

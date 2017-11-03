@@ -1,0 +1,71 @@
+{
+    "models": {
+        "beam": {
+            "bcurrent": 0.013,
+            "bfreq": 1300000000,
+            "charge": 1,
+            "mass": 1,
+            "npart": 5000,
+            "particle": "ELECTRON"
+        },
+        "bunchReport": {
+            "histogramBins": 100,
+            "x": "x",
+            "y": "px"
+        },
+        "distribution": {
+            "binomial_m": 1.5,
+            "binomial_mx": 0.5,
+            "binomial_my": 0,
+            "binomial_mz": 0,
+            "binomial_sigmapx": 1,
+            "binomial_sigmapy": 0.001,
+            "binomial_sigmapz": 0.001,
+            "binomial_sigmax": 1,
+            "binomial_sigmay": 1,
+            "binomial_sigmaz": 1,
+            "flattop_sigmar": 0,
+            "flattop_sigmax": 0.001,
+            "flattop_sigmay": 0.002,
+            "flattop_sigmaz": 0.003,
+            "gaussian_cutofflong": 4,
+            "gaussian_cutoffpx": 3,
+            "gaussian_cutoffpy": 3,
+            "gaussian_cutoffpz": 3,
+            "gaussian_cutoffr": 0,
+            "gaussian_cutoffx": 2,
+            "gaussian_cutoffy": 2,
+            "gaussian_sigmapx": 0.001,
+            "gaussian_sigmapy": 0.001,
+            "gaussian_sigmapz": 0.001,
+            "gaussian_sigmar": 0,
+            "gaussian_sigmax": 0.001,
+            "gaussian_sigmay": 0.003,
+            "gaussian_sigmaz": 0.002,
+            "offsetpx": 0,
+            "offsetpy": 0,
+            "offsetpz": 0,
+            "offsetx": 0.001,
+            "offsety": -0.002,
+            "offsetz": 0.01,
+            "pxmult": 1,
+            "pymult": 1,
+            "pzmult": 1,
+            "type": "GAUSS",
+            "xmult": 1,
+            "ymult": 1,
+            "zmult": 1
+        },
+        "simulation": {
+            "folder": "/",
+            "isExample": false,
+            "name": "default",
+            "outOfSessionSimulationId": "",
+            "simulationId": "uvgWVG93",
+            "simulationSerial": 1509722326799839
+        },
+        "simulationStatus": {}
+    },
+    "simulationType": "opal",
+    "version": "20171025.000001"
+}
