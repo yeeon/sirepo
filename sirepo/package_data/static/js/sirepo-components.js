@@ -324,6 +324,7 @@ SIREPO.app.directive('labelWithTooltip', function() {
                     title: function() {
                         return scope.tooltip;
                     },
+                    html: scope.tooltip.indexOf('</') >= 0,
                     placement: 'bottom',
                 });
                 scope.$on('$destroy', function() {
@@ -619,7 +620,7 @@ SIREPO.app.directive('fileField', function(appState, panelState, requestSender, 
                 if (!m) {
                     throw $scope.model.imageFile + ': invalid imageFile name';
                 }
-                var fn = m[2] + '_processed.tif';
+                var fn = m[2] + '_processed.' + $scope.model.outputImageFormat;
                 var url = requestSender.formatUrl({
                     routeName: 'getApplicationData',
                     '<filename>': fn
@@ -634,7 +635,8 @@ SIREPO.app.directive('fileField', function(appState, panelState, requestSender, 
                         'simulationId': appState.models.simulation.simulationId,
                         'simulationType': SIREPO.APP_SCHEMA.simulationType,
                         'method': 'processedImage',
-                        'baseImage': m[1]
+                        'baseImage': m[1],
+                        'model': $scope.model,
                     },
                     {responseType: 'blob'}
                 ).then(
