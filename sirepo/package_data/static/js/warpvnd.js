@@ -282,7 +282,7 @@ SIREPO.app.directive('appHeader', function(appState, panelState) {
                 //  '<div>App-specific setting item</div>',
               '</app-settings>',
               '<app-header-right-sim-list>',
-                //'<ul class="nav navbar-nav navbar-right">',
+                //'<ul class="nav navbar-nav sr-navbar-right">',
                 //  '<li>App-specific items</li>',
                 //'</ul>',
               '</app-header-right-sim-list>',
@@ -976,7 +976,7 @@ SIREPO.app.directive('simulationStatusPanel', function(appState, frameCache, pan
     };
 });
 
-SIREPO.app.directive('impactDensityPlot', function(plotting) {
+SIREPO.app.directive('impactDensityPlot', function(appState, plotting) {
     return {
         restrict: 'A',
         scope: {
@@ -1089,7 +1089,7 @@ SIREPO.app.directive('impactDensityPlot', function(plotting) {
                 select('.x-axis-label').text(plotting.extractUnits($scope, 'x', json.x_label));
                 select('.main-title').text(json.title);
 
-                var colorRange = plotting.COLOR_MAP.coolwarm;
+                var colorRange = plotting.colorRangeFromModel($scope.modelName);
                 var colorScale = d3.scale.linear()
                     .domain(plotting.linspace(json.v_min, json.v_max, colorRange.length))
                     .range(colorRange);

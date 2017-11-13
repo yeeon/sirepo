@@ -240,9 +240,19 @@
         background-color: #f5f5f5;
     }
 
-    @media (min-width: 768px) {
+    @media (max-width: 767px) {
         .sr-navbar-right {
-            float: right !important;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+    }
+    @media (min-width: 768px) {
+        .sr-navbar-right-flex {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            justify-content: flex-end;
+            float: right;
         }
     }
 
@@ -254,6 +264,67 @@
 
     .sr-notify {
         box-shadow: 0 5px 15px rgba(0, 0, 0, .5);
+    }
+    @media (min-width: 768px) {
+        .sr-notify-text {
+            text-align: right;
+        }
+        .sr-notify-pointer {
+            float: right;
+            padding-left: 4px;
+        }
+    }
+    @media (max-width: 768px) {
+        .sr-notify-text {
+            text-align: left;
+        }
+        .sr-notify-pointer {
+            float: left;
+            padding-right: 4px;
+        }
+    }
+
+    ul.sr-button-menu {
+        list-style: none;
+    }
+    li.sr-button-menu {
+        padding: 3px;
+    }
+
+    li.sr-button-menu > button.sr-button-menu-selected {
+        border-width: 1px;
+        border-style: solid;
+        border-color: #888888;
+        text-align: left;
+        color: white;
+        background-color: #337ab7;
+    }
+    li.sr-button-menu > button.sr-button-menu-selected:hover {
+        color: white;
+        background-color: #286090;
+    }
+
+    li.sr-button-menu > button.sr-button-menu-unselected {
+        border-width: 1px;
+        border-style: solid;
+        border-color: #888888;
+        text-align: left;
+        color: black;
+        background-color: #f5f5f5;
+    }
+    li.sr-button-menu > button.sr-button-menu-unselected:hover {
+        color: white;
+        background-color: #4897da;
+    }
+
+    .sr-color-map-indicator {
+        width: 64px;
+        height: 24px;
+        border-radius: 4px;
+        border-style: solid;
+        border-width: 1px;
+        vertical-align: middle;
+        display: inline-block;
     }
 
     .sr-panel-heading {

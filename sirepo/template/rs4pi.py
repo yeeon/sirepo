@@ -10,34 +10,47 @@ from pykern import pkcollections
 from pykern import pkio
 from pykern import pkjinja
 from pykern.pkdebug import pkdc, pkdp
+from scipy.ndimage.interpolation import zoom
 from sirepo import simulation_db
 from sirepo.template import template_common
 import ctypes
 import datetime
 import dicom
 import glob
+import h5py
 import numpy as np
 import os
 import os.path
 import py.path
+import re
 import struct
+import time
 import werkzeug
 import zipfile
 
 RTSTRUCT_EXPORT_FILENAME = 'rtstruct.dcm'
+RTDOSE_EXPORT_FILENAME = 'dose.dcm'
+PRESCRIPTION_FILENAME = 'prescription.json'
 SIM_TYPE = 'rs4pi'
 WANT_BROWSER_FRAME_CACHE = True
-
+RESOURCE_DIR = template_common.resource_dir(SIM_TYPE)
+DOSE_CALC_SH = 'dose_calc.sh'
+DOSE_CALC_OUTPUT = 'Full_Dose.h5'
 _DICOM_CLASS = {
     'CT_IMAGE': '1.2.840.10008.5.1.4.1.1.2',
+    'RT_DOSE': '1.2.840.10008.5.1.4.1.1.481.2',
     'RT_STRUCT': '1.2.840.10008.5.1.4.1.1.481.3',
     'DETATCHED_STUDY': '1.2.840.10008.3.1.2.3.1',
 }
+_BEAMLIST_FILENAME = 'beamlist_72deg.txt'
 _DICOM_DIR = 'dicom'
 _DICOM_MAX_VALUE = 1000
 _DICOM_MIN_VALUE = -1000
+_DOSE_DICOM_FILE = RTDOSE_EXPORT_FILENAME
+_DOSE_FILE = 'dose3d.dat'
 _EXPECTED_ORIENTATION = np.array([1, 0, 0, 0, 1, 0])
-_INT_SIZE = ctypes.sizeof(ctypes.c_int)
+# using np.float32 for pixel storage
+_FLOAT_SIZE = 4
 _PIXEL_FILE = 'pixels3d.dat'
 _RADIASOFT_ID = 'RadiaSoft'
 _ROI_FILE_NAME = 'rs4pi-roi-data.json'
@@ -74,22 +87,99 @@ def copy_related_files(data, source_path, target_path):
 def fixup_old_data(data):
     if 'dicomEditorState' not in data['models']:
         data['models']['dicomEditorState'] = {}
+    if 'doseCalculation' not in data['models']:
+        data['models']['doseCalculation'] = {
+            'selectedPTV': '',
+            'selectedOARs': [],
+        }
+    if 'dicomDose' not in data['models']:
+        data['models']['dicomDose'] = {
+            'frameCount': 0,
+        }
+    if 'dicomAnimation4' not in data['models']:
+        anim = data['models']['dicomAnimation']
+        data['models']['dicomAnimation4'] = {
+            'dicomPlane': 't',
+            'startTime': anim['startTime'] if 'startTime' in anim else 0,
+        }
+    if 'dvhReport' not in data['models']:
+        data['models']['dvhReport'] = {
+            'roiNumber': '',
+        }
+    if 'dvhType' not in data['models']['dvhReport']:
+        dvhReport = data['models']['dvhReport']
+        dvhReport['dvhType'] = 'cumulative'
+        dvhReport['dvhVolume'] = 'relative'
+    if 'roiNumbers' not in data['models']['dvhReport']:
+        dvhReport = data['models']['dvhReport']
+        if dvhReport['roiNumber']:
+            dvhReport['roiNumbers'] = [dvhReport['roiNumber']]
+        del dvhReport['roiNumber']
 
 
-def generate_rtstruct_file(sim_dir, target_dir):
-    models = simulation_db.read_json(sim_dir.join(_ROI_FILE_NAME))['models']
-    frame_data = models['dicomFrames']
-    roi_data = models['regionsOfInterest']
-    plan = _create_dicom_dataset(frame_data)
-    _generate_dicom_reference_frame_info(plan, frame_data)
-    _generate_dicom_roi_info(plan, frame_data, roi_data)
-    filename = str(target_dir.join(RTSTRUCT_EXPORT_FILENAME))
-    plan.save_as(filename)
-    return filename
+def generate_rtdose_file(data, run_dir):
+    dose_hd5 = str(run_dir.join(DOSE_CALC_OUTPUT))
+    dicom_series = data['models']['dicomSeries']
+    frame = pkcollections.Dict(
+        StudyInstanceUID=dicom_series['studyInstanceUID'],
+        shape=np.array([
+            dicom_series['planes']['t']['frameCount'],
+            dicom_series['planes']['c']['frameCount'],
+            dicom_series['planes']['s']['frameCount'],
+        ]),
+        spacing=np.array(_float_list(dicom_series['pixelSpacing'])),
+    )
+    with h5py.File(dose_hd5, 'r') as f:
+        start = f['/dose'].attrs['dicom_start_cm'] * 10
+        #TODO(pjm): assumes the size closely matches original dicom when scaled
+        # size = f['/dose'].attrs['voxel_size_cm'] * 10
+        ds = _create_dicom_dataset(frame['StudyInstanceUID'], 'RT_DOSE', 'RTDOSE')
+        pixels = np.array(f['/dose'])
+        shape = pixels.shape
+        # reshape the pixels in place: z is actually first
+        pixels.shape = (shape[2], shape[0], shape[1])
+        shape = pixels.shape
+        pixels = zoom(pixels, zoom=frame['shape']/shape, order=1)
+        shape = pixels.shape
+
+        ds.ImagePositionPatient = _string_list(start)
+        ds.PixelSpacing = _string_list([frame['spacing'][0], frame['spacing'][1]])
+        ds.Rows = shape[1]
+        ds.Columns = shape[2]
+        ds.NumberofFrames = shape[0]
+        ds.DoseUnits = 'GY'
+
+        pixels = pixels.flatten()
+        v = pixels.max()
+        max_int = np.iinfo(np.uint32).max - 1
+        scale = v / max_int
+        ds.DoseGridScaling = scale
+        pixels /= scale
+        ds.BitsAllocated = 32
+        ds.BitsStore = 32
+        ds.HightBit = 31
+        ds.PixelRepresentation = 0
+        ds.SamplesPerPixel = 1
+        ds.PixelData = pixels.astype(np.uint32)
+
+        # for dicompyler
+        ds.PhotometricInterpretation = 'MONOCHROME2'
+        ds.DoseType = 'PHYSICAL'
+        ds.DoseSummationType = 'PLAN'
+        ds.ImageOrientationPatient = _string_list(_EXPECTED_ORIENTATION)
+        ds.GridFrameOffsetVector = np.linspace(0.0, frame['spacing'][2] * (shape[0] - 1), shape[0]).tolist()
+        ds.save_as(_parent_file(run_dir, _DOSE_DICOM_FILE))
+        return _summarize_rt_dose(None, ds, run_dir=run_dir)
 
 
 def get_animation_name(data):
     if data['modelName'].startswith('dicomAnimation'):
+        return 'dicomAnimation'
+    if data['modelName'] == 'dicomDose':
+        # if the doseCalculation has been run, use that directory for work
+        # otherwise, it is an imported dose file
+        if simulation_db.simulation_dir(SIM_TYPE, simulation_db.parse_sid(data)).join('doseCalculation').exists():
+            return 'doseCalculation'
         return 'dicomAnimation'
     return data['modelName']
 
@@ -104,8 +194,11 @@ def get_application_data(data):
 
 
 def get_data_file(run_dir, model, frame, **kwargs):
+    if model == 'dicomAnimation4':
+        with open(_parent_file(run_dir, _DOSE_DICOM_FILE)) as f:
+            return RTDOSE_EXPORT_FILENAME, f.read(), 'application/octet-stream'
     tmp_dir = simulation_db.tmp_dir()
-    filename = generate_rtstruct_file(run_dir.join('..'), tmp_dir)
+    filename, _ = _generate_rtstruct_file(_parent_dir(run_dir), tmp_dir)
     with open (filename, 'rb') as f:
         dicom_data = f.read()
     pkio.unchecked_remove(tmp_dir)
@@ -120,6 +213,10 @@ def get_simulation_frame(run_dir, data, model_data):
         res = simulation_db.read_json(_dicom_path(model_data['models']['simulation'], plane, frame_index))
         res['pixel_array'] = _read_pixel_plane(plane, frame_index, model_data)
         return res
+    if data['modelName'] == 'dicomDose':
+        return {
+            'dose_array': _read_dose_frame(frame_index, model_data)
+        }
     raise RuntimeError('{}: unknown simulation frame model'.format(data['modelName']))
 
 
@@ -138,11 +235,15 @@ def import_file(request, lib_dir=None, tmp_dir=None):
 
 
 def lib_files(data, source_lib):
-    return template_common.internal_lib_files([], source_lib)
+    return template_common.internal_lib_files([_BEAMLIST_FILENAME], source_lib)
 
 
 def models_related_to_report(data):
-    return []
+    if data['report'] == 'doseCalculation':
+        return []
+    if data['report'] == 'dvhReport':
+        return [data['report'], 'dicomDose']
+    return [data['report']]
 
 
 def prepare_aux_files(run_dir, data):
@@ -160,11 +261,49 @@ def remove_last_frame(run_dir):
 
 
 def resource_files():
-    return []
+    return pkio.sorted_glob(RESOURCE_DIR.join('beamlist*.txt'))
 
 
 def write_parameters(data, schema, run_dir, is_parallel):
-    pass
+    rtfile = py.path.local(_parent_file(run_dir, RTSTRUCT_EXPORT_FILENAME))
+    if data['report'] == 'doseCalculation':
+        cache = py.path.local(_parent_file(run_dir, DOSE_CALC_OUTPUT))
+        if cache.check():
+            cache.copy(run_dir.join(DOSE_CALC_OUTPUT))
+            pkio.write_text(run_dir.join(DOSE_CALC_SH), 'exit')
+            return
+    if data['report'] == 'dvhReport' and rtfile.exists():
+        return
+    if data['report'] in ('doseCalculation', 'dvhReport'):
+        _, roi_models = _generate_rtstruct_file(_parent_dir(run_dir), _parent_dir(run_dir))
+        if data['report'] == 'doseCalculation':
+            dose_calc = data.models.doseCalculation
+            roi_data = roi_models['regionsOfInterest']
+            ptv_name = ''
+            oar_names = []
+            for roi_number in roi_data:
+                if roi_number == dose_calc.selectedPTV:
+                    ptv_name = roi_data[roi_number]['name']
+                elif roi_number in dose_calc.selectedOARs:
+                    oar_names.append(roi_data[roi_number]['name'])
+            prescription = run_dir.join(PRESCRIPTION_FILENAME)
+            simulation_db.write_json(
+                prescription,
+                {
+                    'ptv': ptv_name,
+                    'oar': oar_names,
+                })
+            pkjinja.render_file(
+                RESOURCE_DIR.join(DOSE_CALC_SH + '.jinja'),
+                {
+                    'prescription': prescription,
+                    'beamlist': run_dir.join(_BEAMLIST_FILENAME),
+                    'dicom_zip': _sim_file(data['simulationId'], _ZIP_FILE_NAME),
+                },
+                output=run_dir.join(DOSE_CALC_SH),
+                strict_undefined=True,
+            ),
+
 
 
 def _calculate_domain(frame):
@@ -204,11 +343,11 @@ def _compute_histogram(simulation, frames):
     simulation_db.write_json(filename, roi_data)
 
 
-def _create_dicom_dataset(frame_data):
+def _create_dicom_dataset(study_uid, dicom_class, modality):
     sop_uid = dicom.UID.generate_uid()
 
     file_meta = dicom.dataset.Dataset()
-    file_meta.MediaStorageSOPClassUID = _DICOM_CLASS['RT_STRUCT']
+    file_meta.MediaStorageSOPClassUID = _DICOM_CLASS[dicom_class]
     file_meta.MediaStorageSOPInstanceUID = sop_uid
     #TODO(pjm): need proper implementation uid
     file_meta.ImplementationClassUID = "1.2.3.4"
@@ -218,12 +357,12 @@ def _create_dicom_dataset(frame_data):
     now = datetime.datetime.now()
     ds.InstanceCreationDate = now.strftime('%Y%m%d')
     ds.InstanceCreationTime = now.strftime('%H%M%S.%f')
-    ds.SOPClassUID = _DICOM_CLASS['RT_STRUCT']
+    ds.SOPClassUID = _DICOM_CLASS[dicom_class]
     ds.SOPInstanceUID = sop_uid
     ds.StudyDate = ''
     ds.StudyTime = ''
     ds.AccessionNumber = ''
-    ds.Modality = 'RTSTRUCT'
+    ds.Modality = modality
     ds.Manufacturer = _RADIASOFT_ID
     ds.ReferringPhysiciansName = ''
     ds.ManufacturersModelName = _RADIASOFT_ID
@@ -231,13 +370,10 @@ def _create_dicom_dataset(frame_data):
     ds.PatientID = _RADIASOFT_ID
     ds.PatientsBirthDate = ''
     ds.PatientsSex = ''
-    ds.StudyInstanceUID = frame_data['StudyInstanceUID']
+    ds.StudyInstanceUID = study_uid
     ds.SeriesInstanceUID = dicom.UID.generate_uid()
     ds.StudyID = ''
     ds.SeriesNumber = ''
-    ds.StructureSetLabel = '{} Exported'.format(_RADIASOFT_ID)
-    ds.StructureSetDate = ds.InstanceCreationDate
-    ds.StructureSetTime = ds.InstanceCreationTime
     return ds
 
 
@@ -245,17 +381,31 @@ def _dicom_path(simulation, plane, idx):
     return str(py.path.local(_sim_file(simulation['simulationId'], _DICOM_DIR)).join(_frame_file_name(plane, idx)))
 
 
+def _dose_dicom_filename(simulation):
+    return _sim_file(simulation['simulationId'], _DOSE_DICOM_FILE)
+
+
+def _dose_filename(simulation):
+    return _sim_file(simulation['simulationId'], _DOSE_FILE)
+
+
 def _extract_series_frames(simulation, dicom_dir):
     #TODO(pjm): give user a choice between multiple study/series if present
     selected_series = None
-    series_description = ''
     frames = {}
+    dicom_dose = None
     rt_struct_path = None
+    res = {
+        'description': '',
+    }
     for path in pkio.walk_tree(dicom_dir):
         if pkio.has_file_extension(str(path), 'dcm'):
             plan = dicom.read_file(str(path))
             if plan.SOPClassUID == _DICOM_CLASS['RT_STRUCT']:
                 rt_struct_path = str(path)
+            elif plan.SOPClassUID == _DICOM_CLASS['RT_DOSE']:
+                res['dicom_dose'] = _summarize_rt_dose(simulation, plan)
+                plan.save_as(_dose_dicom_filename(simulation))
             if plan.SOPClassUID != _DICOM_CLASS['CT_IMAGE']:
                 continue
             orientation = _float_list(plan.ImageOrientationPatient)
@@ -263,12 +413,14 @@ def _extract_series_frames(simulation, dicom_dir):
                 continue
             if not selected_series:
                 selected_series = plan.SeriesInstanceUID
+                res['StudyInstanceUID'] = plan.StudyInstanceUID
+                res['PixelSpacing'] = plan.PixelSpacing
                 if hasattr(plan, 'SeriesDescription'):
-                    series_description = plan.SeriesDescription
+                    res['description'] = plan.SeriesDescription
             if selected_series != plan.SeriesInstanceUID:
                 continue
             info = {
-                'pixels': np.int32(plan.pixel_array),
+                'pixels': np.float32(plan.pixel_array),
                 'shape': plan.pixel_array.shape,
                 'ImagePositionPatient': _string_list(plan.ImagePositionPatient),
                 'ImageOrientationPatient': _float_list(plan.ImageOrientationPatient),
@@ -285,11 +437,12 @@ def _extract_series_frames(simulation, dicom_dir):
     if not selected_series:
         raise RuntimeError('No series found with {} orientation'.format(_EXPECTED_ORIENTATION))
     if rt_struct_path:
-        _summarize_rt_structure(simulation, dicom.read_file(rt_struct_path), frames.keys())
-    res = []
+        res['regionsOfInterest'] = _summarize_rt_structure(simulation, dicom.read_file(rt_struct_path), frames.keys())
+    sorted_frames = []
+    res['frames'] = sorted_frames
     for z in sorted(_float_list(frames.keys())):
-        res.append(frames[_frame_id(z)])
-    return series_description, res
+        sorted_frames.append(frames[_frame_id(z)])
+    return res
 
 
 def _frame_id(v):
@@ -365,6 +518,21 @@ def _generate_dicom_roi_info(plan, frame_data, roi_data):
         plan.ROIContourSequence.append(contour_ds)
 
 
+def _generate_rtstruct_file(sim_dir, target_dir):
+    models = simulation_db.read_json(sim_dir.join(_ROI_FILE_NAME))['models']
+    frame_data = models['dicomFrames']
+    roi_data = models['regionsOfInterest']
+    plan = _create_dicom_dataset(frame_data['StudyInstanceUID'], 'RT_STRUCT', 'RTSTRUCT')
+    plan.StructureSetLabel = '{} Exported'.format(_RADIASOFT_ID)
+    plan.StructureSetDate = plan.InstanceCreationDate
+    plan.StructureSetTime = plan.InstanceCreationTime
+    _generate_dicom_reference_frame_info(plan, frame_data)
+    _generate_dicom_roi_info(plan, frame_data, roi_data)
+    filename = str(target_dir.join(RTSTRUCT_EXPORT_FILENAME))
+    plan.save_as(filename)
+    return filename, models
+
+
 def _histogram_from_pixels(pixels):
     m = 50
     extent = [np.array(pixels).min(), np.array(pixels).max()]
@@ -386,7 +554,7 @@ def _histogram_from_pixels(pixels):
         np.floor(extent[1] / step) * step + step * .5,
         step,
     ]
-    bins = np.ceil((e[1] - e[0]) / e[2])
+    bins = int(np.ceil((e[1] - e[0]) / e[2]))
     hist, edges = np.histogram(pixels, bins=bins, range=[e[0], e[0] + (bins - 1) * step])
     if hist[0] == hist.max():
         v = hist[0]
@@ -416,8 +584,34 @@ def _move_import_file(data):
         simulation_db.save_simulation_json(data)
 
 
+def _parent_dir(child_dir):
+    return child_dir.join('..')
+
+
+def _parent_file(child_dir, filename):
+    return str(_parent_dir(child_dir).join(filename))
+
+
 def _pixel_filename(simulation):
     return _sim_file(simulation['simulationId'], _PIXEL_FILE)
+
+
+def _read_dose_frame(idx, data):
+    res = []
+    if 'dicomDose' not in data['models']:
+        return res
+    dicom_dose = data['models']['dicomDose']
+    if idx >= dicom_dose['frameCount']:
+        return res
+    shape = dicom_dose['shape']
+    with open (_dose_filename(data['models']['simulation']), 'rb') as f:
+        f.seek(idx * _FLOAT_SIZE * shape[0] * shape[1], 1)
+        for r in range(shape[0]):
+            row = []
+            res.append(row)
+            for c in range(shape[1]):
+                row.append(struct.unpack('f', f.read(_FLOAT_SIZE))[0])
+    return res
 
 
 def _read_pixel_plane(plane, idx, data):
@@ -429,31 +623,31 @@ def _read_pixel_plane(plane, idx, data):
     with open (_pixel_filename(data['models']['simulation']), 'rb') as f:
         if plane == 't':
             if idx > 0:
-                f.seek(idx * _INT_SIZE * size[0] * size[1], 1)
+                f.seek(idx * _FLOAT_SIZE * size[0] * size[1], 1)
             for r in range(size[1]):
                 row = []
                 frame.append(row)
                 for v in range(size[0]):
-                    row.append(struct.unpack('i', f.read(_INT_SIZE))[0])
+                    row.append(struct.unpack('f', f.read(_FLOAT_SIZE))[0])
         elif plane == 'c':
             if idx > 0:
-                f.seek(idx * _INT_SIZE * size[0], 1)
+                f.seek(idx * _FLOAT_SIZE * size[0], 1)
             for r in range(size[2]):
                 row = []
                 frame.append(row)
                 for v in range(size[0]):
-                    row.append(struct.unpack('i', f.read(_INT_SIZE))[0])
-                f.seek(_INT_SIZE * (size[0] - 1) * size[1], 1)
+                    row.append(struct.unpack('f', f.read(_FLOAT_SIZE))[0])
+                f.seek(_FLOAT_SIZE * (size[0] - 1) * size[1], 1)
             frame = np.flipud(frame).tolist()
         elif plane == 's':
             if idx > 0:
-                f.seek(idx * _INT_SIZE, 1)
+                f.seek(idx * _FLOAT_SIZE, 1)
             for r in range(size[2]):
                 row = []
                 frame.append(row)
                 for v in range(size[1]):
-                    row.append(struct.unpack('i', f.read(_INT_SIZE))[0])
-                    f.seek(_INT_SIZE * (size[0] - 1), 1)
+                    row.append(struct.unpack('f', f.read(_FLOAT_SIZE))[0])
+                    f.seek(_FLOAT_SIZE * (size[0] - 1), 1)
             frame = np.flipud(frame).tolist()
         else:
             raise RuntimeError('plane not supported: {}'.format(plane))
@@ -479,8 +673,8 @@ def _scale_pixel_data(plan, pixels):
         offset = plan.RescaleIntercept
         scale_required = True
     if scale_required:
-        pixels *= slope
-        pixels += offset
+        pixels *= float(slope)
+        pixels += float(offset)
 
 
 def _sim_file(sim_id, filename):
@@ -493,19 +687,39 @@ def _string_list(ar):
 
 def _summarize_dicom_files(data, dicom_dir):
     simulation = data['models']['simulation']
-    series_description, frames = _extract_series_frames(simulation, dicom_dir)
-    _summarize_dicom_series(simulation, frames)
+    info = _extract_series_frames(simulation, dicom_dir)
+    frames = info['frames']
+    info['pixelSpacing'] = _summarize_dicom_series(simulation, frames)
     with open (_pixel_filename(simulation), 'wb') as f:
         for frame in frames:
             frame['pixels'].tofile(f)
     data['models']['dicomSeries'] = {
-        'description': series_description,
+        'description': info['description'],
+        'pixelSpacing': info['pixelSpacing'],
+        'studyInstanceUID': info['StudyInstanceUID'],
         'planes': {
             't': _frame_info(len(frames)),
             's': _frame_info(len(frames[0]['pixels'])),
             'c': _frame_info(len(frames[0]['pixels'][0])),
         }
     }
+    time_stamp = int(time.time())
+    for m in ('dicomAnimation', 'dicomAnimation2', 'dicomAnimation3', 'dicomAnimation4'):
+        data['models'][m]['startTime'] = time_stamp
+    if 'regionsOfInterest' in info:
+        dose_calc = data['models']['doseCalculation']
+        selectedPTV = None
+        dose_calc['selectedOARs'] = []
+        for roi_number in sorted(info['regionsOfInterest']):
+            roi = info['regionsOfInterest'][roi_number]
+            if not selectedPTV or re.search(r'\bptv\b', roi['name'], re.IGNORECASE):
+                selectedPTV = str(roi_number)
+            dose_calc['selectedOARs'].append(str(roi_number))
+        if selectedPTV:
+            dose_calc['selectedPTV'] = selectedPTV
+            data['models']['dvhReport']['roiNumbers'] = [selectedPTV]
+    if 'dicom_dose' in info:
+        data['models']['dicomDose'] = info['dicom_dose']
     _compute_histogram(simulation, frames)
 
 
@@ -569,6 +783,8 @@ def _summarize_dicom_series(simulation, frames):
         res['domain'] = _calculate_domain(res)
         filename = _dicom_path(simulation, 's', idx)
         simulation_db.write_json(filename, res)
+    spacing = frame0['PixelSpacing']
+    return _string_list([spacing[0], spacing[1], z_space])
 
 
 def _summarize_frames(frames):
@@ -582,22 +798,41 @@ def _summarize_frames(frames):
     return res
 
 
-def _summarize_rt_structure(simulation, plan, frame_ids):
-    data = {
-        'models': {},
+def _summarize_rt_dose(simulation, plan, run_dir=None):
+    pixels = np.float32(plan.pixel_array)
+    if plan.DoseGridScaling:
+        pixels *= float(plan.DoseGridScaling)
+    fn = _parent_file(run_dir, _DOSE_FILE) if run_dir else _dose_filename(simulation)
+    with open (fn, 'wb') as f:
+        pixels.tofile(f)
+    #TODO(pjm): assuming frame start matches dicom frame start
+    res = {
+        'frameCount': int(plan.NumberofFrames),
+        'units': plan.DoseUnits,
+        'min': float(np.min(pixels)),
+        'max': float(np.max(pixels)),
+        'shape': [plan.Rows, plan.Columns],
+        'ImagePositionPatient': _string_list(plan.ImagePositionPatient),
+        'PixelSpacing': _float_list(plan.PixelSpacing),
+        'startTime': int(time.time()),
     }
-    res = data['models']['regionsOfInterest'] = {}
+    res['domain'] = _calculate_domain(res)
+    return res
+
+
+def _summarize_rt_structure(simulation, plan, frame_ids):
+    rois = {}
     for roi in plan.StructureSetROISequence:
-        res[roi.ROINumber] = {
+        rois[roi.ROINumber] = {
             'name': roi.ROIName,
         }
+    res = {}
     for roi_contour in plan.ROIContourSequence:
-        roi = res[roi_contour.ReferencedROINumber]
+        roi = rois[roi_contour.ReferencedROINumber]
         if 'contour' in roi:
             raise RuntimeError('duplicate contour sequence for roi')
         if not hasattr(roi_contour, 'ContourSequence'):
             continue
-        roi['color'] = roi_contour.ROIDisplayColor
         roi['contour'] = {}
         for contour in roi_contour.ContourSequence:
             if contour.ContourGeometricType != 'CLOSED_PLANAR':
@@ -614,7 +849,16 @@ def _summarize_rt_structure(simulation, plan, frame_ids):
                 if ct_id not in roi['contour']:
                     roi['contour'][ct_id] = []
                 roi['contour'][ct_id].append(contour_data)
-    simulation_db.write_json(_roi_file(simulation['simulationId']), data)
+        if roi['contour']:
+            roi['color'] = roi_contour.ROIDisplayColor
+            res[roi_contour.ReferencedROINumber] = roi
+
+    simulation_db.write_json(_roi_file(simulation['simulationId']), {
+        'models': {
+            'regionsOfInterest': res,
+        },
+    })
+    return res
 
 
 def _update_roi_file(sim_id, contours):

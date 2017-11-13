@@ -373,6 +373,9 @@ SIREPO.app.directive('fieldEditor', function(appState, panelState, requestSender
               // '<div data-ng-switch-when="Boolean" class="col-sm-7">',
               //   '<input data-bootstrap-toggle="" data-ng-checked="{{model[field]}}" type="checkbox" id="bs-toggle-id-{{$id}}" data-toggle="toggle" data-on="{{onValue}}" data-off="{{offValue}}">',
               // '</div>',
+              '<div data-ng-switch-when="ColorMap" class="col-sm-7">',
+                '<div data-color-map-menu="" class="dropdown"></div>',
+              '</div>',
               SIREPO.appFieldEditors || '',
               // assume it is an enum
               '<div data-ng-switch-default data-ng-class="fieldClass">',
@@ -448,7 +451,7 @@ SIREPO.app.directive('loginMenu', function(requestSender, notificationService) {
 
     var sr_login_notify_cookie = 'net.sirepo.login_notify_timeout';
     var sr_login_notify_timeout = 1*24*60*60*1000;
-    var sr_login_notify_content = '<strong>Log in to persist your workspace</strong> <span class="glyphicon glyphicon-hand-up"></span>';
+    var sr_login_notify_content = '<strong>To save your work, log into GitHub</strong><span class="glyphicon glyphicon-hand-up sr-notify-pointer"></span>';
 
     return {
         restrict: 'A',
@@ -1132,6 +1135,68 @@ SIREPO.app.directive('safePath', function() {
     };
 });
 
+SIREPO.app.directive('colorMapMenu', function(appState, plotting) {
+
+    return {
+        restrict: 'A',
+        template: [
+            '<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown"><span class="sr-color-map-indicator" data-ng-style="colorMapStyle(model[field])"></span> {{ plotting.colorMapNameOrDefault(model[field], reportDefaultMap) }} <span class="caret"></span></button>',
+            '<ul class="dropdown-menu sr-button-menu">',
+                '<li data-ng-repeat="item in enum[info[1]]" class="sr-button-menu">',
+                    '<button class="btn btn-block"  data-ng-class="{\'sr-button-menu-selected\': isSelectedMap(item[0]), \'sr-button-menu-unselected\': ! isSelectedMap(item[0])}" data-ng-click="setColorMap(item[0])">',
+                        '<span class="sr-color-map-indicator" data-ng-style="colorMapStyle(item[0])"></span> {{item[1]}} <span data-ng-if="isDefaultMap(item[0])" class="glyphicon glyphicon-star-empty"></span><span data-ng-if="isSelectedMap(item[0])" class="glyphicon glyphicon-ok"></span>',
+                    '</button>',
+                '</li>',
+            '</ul>',
+        ].join(''),
+        controller: function($scope) {
+
+            $scope.enum = SIREPO.APP_SCHEMA.enum;
+            $scope.info = appState.modelInfo($scope.modelName)[$scope.field];
+            $scope.reportDefaultMap = $scope.info[SIREPO.INFO_INDEX_DEFAULT_VALUE];
+            //srdbg('report default is', $scope.reportDefaultMap);
+            if (!$scope.info) {
+                throw 'invalid model field: ' + $scope.modelName + '.' + $scope.field;
+            }
+            $scope.isSelectedValue = function(value) {
+                return $scope.model[$scope.field] == value;
+            };
+            $scope.isSelectedMap = function(mapName) {
+                if($scope.model && $scope.model[$scope.field]) {
+                    return $scope.isSelectedValue(mapName);
+                }
+                return $scope.isDefaultMap(mapName);
+            };
+            $scope.isDefaultMap = function(mapName) {
+                return plotting.colorMapNameOrDefault(mapName, $scope.reportDefaultMap) === plotting.colorMapNameOrDefault(null, $scope.reportDefaultMap);
+            };
+            $scope.setColorMap = function(mapName) {
+                $scope.model[$scope.field] = mapName;
+            };
+
+            $scope.plotting = plotting;
+            $scope.colorMapStyle = function(mapName) {
+
+                var map = plotting.colorMapOrDefault(mapName, $scope.reportDefaultMap);
+                if (! map) {
+                    return {};
+                }
+
+                var css = 'linear-gradient(to right, ' + map[0];
+                for(var i = 1; i < map.length; ++i) {
+                    css += ', ';
+                    css += map[i];
+                }
+                css += ')';
+                return {
+                    'background': css,
+                };
+
+            };
+        },
+    };
+});
+
 SIREPO.app.directive('numberToString', function() {
     return {
         restrict: 'A',
@@ -1219,7 +1284,7 @@ SIREPO.app.directive('panelHeading', function(appState, frameCache, panelState, 
                         return false;
                     }
                     if (appState.isAnimationModelName($scope.modelKey)) {
-                        return frameCache.getFrameCount() > 0;
+                        return frameCache.getFrameCount($scope.modelKey) > 0;
                     }
                     return ! panelState.isLoading($scope.modelKey);
                 }
@@ -1323,10 +1388,11 @@ SIREPO.app.directive('appHeaderLeft', function(panelState, appState, requestSend
         restrict: 'A',
         scope: {
             nav: '=appHeaderLeft',
+            simulationsLinkText: '@',
         },
         template: [
             '<ul class="nav navbar-nav" data-ng-if="showMenu()">',
-              '<li data-ng-class="{active: nav.isActive(\'simulations\')}"><a href data-ng-click="nav.openSection(\'simulations\')"><span class="glyphicon glyphicon-th-list"></span> Simulations</a></li>',
+              '<li data-ng-class="{active: nav.isActive(\'simulations\')}"><a href data-ng-click="nav.openSection(\'simulations\')"><span class="glyphicon glyphicon-th-list"></span> {{ simulationsLinkText }}</a></li>',
             '</ul>',
             '<div data-ng-if="showTitle()" class="navbar-text">',
                 '<a href data-ng-click="nav.showSimulationModal()"><span data-ng-if="nav.sectionTitle()" class="glyphicon glyphicon-pencil"></span> <strong data-ng-bind="nav.sectionTitle()"></strong></a> ',
@@ -1334,6 +1400,9 @@ SIREPO.app.directive('appHeaderLeft', function(panelState, appState, requestSend
             '</div>',
         ].join(''),
         controller: function($scope) {
+            if (! $scope.simulationsLinkText) {
+                $scope.simulationsLinkText = 'Simulations';
+            }
             $scope.showMenu = function() {
                 return ! SIREPO.IS_LOGGED_OUT;
             };
@@ -1374,19 +1443,21 @@ SIREPO.app.directive('appHeaderRight', function(panelState, appState, appDataSer
             nav: '=appHeaderRight',
         },
         template: [
-            '<ul class="nav navbar-nav navbar-right" data-login-menu="" data-ng-if="modeIsDefault()"></ul>',
-            '<ul class="nav navbar-nav navbar-right" data-ng-show="isLoaded()">',
-              '<li data-ng-transclude="appHeaderRightSimLoadedSlot"></li>',
-              '<li data-ng-if="hasDocumentationUrl()"><a href data-ng-click="openDocumentation()"><span class="glyphicon glyphicon-book"></span> Notes</a></li>',
-              '<li data-settings-menu="nav">',
-                '<app-settings data-ng-transclude="appSettingsSlot"></app-settings>',
-              '</li>',
-            '</ul>',
-            '<ul class="nav navbar-nav navbar-right" data-ng-show="nav.isActive(\'simulations\')">',
-              '<li><a href data-ng-click="showSimulationModal()"><span class="glyphicon glyphicon-plus sr-small-icon"></span><span class="glyphicon glyphicon-file"></span> New Simulation</a></li>',
-              '<li><a href data-ng-click="showNewFolderModal()"><span class="glyphicon glyphicon-plus sr-small-icon"></span><span class="glyphicon glyphicon-folder-close"></span> New Folder</a></li>',
-              '<li data-ng-transclude="appHeaderRightSimListSlot"></li>',
-            '</ul>',
+            '<div class="nav sr-navbar-right-flex">',
+                '<ul class="nav navbar-nav" data-ng-show="isLoaded()">',
+                    '<li data-ng-transclude="appHeaderRightSimLoadedSlot"></li>',
+                    '<li data-ng-if="hasDocumentationUrl()"><a href data-ng-click="openDocumentation()"><span class="glyphicon glyphicon-book"></span> Notes</a></li>',
+                    '<li data-settings-menu="nav">',
+                        '<app-settings data-ng-transclude="appSettingsSlot"></app-settings>',
+                    '</li>',
+                '</ul>',
+                '<ul class="nav navbar-nav" data-ng-show="nav.isActive(\'simulations\')">',
+                    '<li><a href data-ng-click="showSimulationModal()"><span class="glyphicon glyphicon-plus sr-small-icon"></span><span class="glyphicon glyphicon-file"></span> New Simulation</a></li>',
+                    '<li><a href data-ng-click="showNewFolderModal()"><span class="glyphicon glyphicon-plus sr-small-icon"></span><span class="glyphicon glyphicon-folder-close"></span> New Folder</a></li>',
+                    '<li data-ng-transclude="appHeaderRightSimListSlot"></li>',
+                '</ul>',
+                '<ul class="nav navbar-nav navbar-right" data-login-menu="" data-ng-if="modeIsDefault()"></ul>',
+            '</div>',
         ].join(''),
         link: function(scope) {
            scope.nav.isLoaded = scope.isLoaded;
@@ -1429,7 +1500,6 @@ SIREPO.app.directive('appHeaderRight', function(panelState, appState, appDataSer
             $scope.openDocumentation = function() {
                 $window.open(appState.models.simulation.documentationUrl, '_blank');
             };
-
         },
     };
 });

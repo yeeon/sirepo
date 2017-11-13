@@ -4,6 +4,14 @@
             ["c", "Coronal"],
             ["t", "Transverse"],
             ["s", "Sagittal"]
+        ],
+        "DVHType": [
+            ["cumulative", "Cumulative"],
+            ["differential", "Differential"]
+        ],
+        "DVHVolume": [
+            ["absolute", "Absolute (cm³)"],
+            ["relative", "Relative (%)"]
         ]
     },
     "model": {
@@ -19,9 +27,10 @@
             "dicomPlane": ["Plane", "DicomPlane"],
             "frameIndex": ["Frame Index", "Integer"]
         },
+        "dicomAnimation4": {
+        },
         "dicomEditorState": {
-            "editCounter": ["Edit Count", "Integer"],
-            "selectedPTV": ["PTV", "String"]
+            "editCounter": ["Edit Count", "Integer"]
         },
         "dicomROI": {
             "name": ["Name", "String"],
@@ -35,6 +44,13 @@
             "width": ["Window Width", "Float"]
         },
         "doseCalculation": {
+            "selectedPTV": ["PTV", "ROI"],
+            "selectedOARs": ["OAR", "ROIArray"]
+        },
+        "dvhReport": {
+            "roiNumbers": ["ROIs to Plot", "ROIArray"],
+            "dvhType": ["DVH Type", "DVHType"],
+            "dvhVolume": ["DVH Volume", "DVHVolume"]
         },
         "instance": {
             "filePath": ["File Path", "String"]
@@ -58,6 +74,10 @@
                 "dicomWindow.width"
             ]
         },
+        "dicomAnimation4": {
+            "title": "DICOM Dose",
+            "advanced": []
+        },
         "dicomEditorState": {
             "title": "DICOM Editor",
             "advanced": []
@@ -76,6 +96,18 @@
                 "width"
             ],
             "advanced": []
+        },
+        "doseCalculation": {
+            "title": "Dose Calculation",
+            "advanced": []
+        },
+        "dvhReport": {
+            "title": "DVH",
+            "advanced": [
+                "roiNumbers",
+                "dvhType",
+                "dvhVolume"
+            ]
         },
         "simulation": {
             "title": "DICOM Session",

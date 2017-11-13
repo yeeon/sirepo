@@ -994,7 +994,7 @@ SIREPO.app.directive('appHeader', function(appState, panelState, requestSender, 
               '<div data-ng-if="! srwService.isApplicationMode(\'calculator\') && nav.isActive(\'beamline\')"><a href data-ng-click="showSimulationGrid()"><span class="glyphicon glyphicon-th"></span> Initial Wavefront Simulation Grid</a></div>',
           '</app-settings>',
           '<app-header-right-sim-list>',
-            '<ul class="nav navbar-nav navbar-right">',
+            '<ul class="nav navbar-nav sr-navbar-right">',
               '<li><a href data-ng-click="showImportModal()"><span class="glyphicon glyphicon-cloud-upload"></span> Import</a></li>',
             '</ul>',
           '</app-header-right-sim-list>',
@@ -1569,7 +1569,8 @@ SIREPO.app.directive('simulationStatusPanel', function(appState, beamlineService
         ].join(''),
         controller: function($scope) {
 
-            var plotFields = ['intensityPlotsWidth', 'intensityPlotsScale'];
+            //TODO(pjm): share with template/srw.py _REPORT_STYLE_FIELDS
+            var plotFields = ['intensityPlotsWidth', 'intensityPlotsScale', 'colorMap'];
             var multiElectronAnimation = null;
 
             function copyMultiElectronModel() {
