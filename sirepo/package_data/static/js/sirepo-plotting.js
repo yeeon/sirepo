@@ -491,7 +491,7 @@ SIREPO.app.factory('plotting', function(appState, d3Service, frameCache, panelSt
         },
 
         ticks: function(axis, width, isHorizontalAxis) {
-            var spacing = isHorizontalAxis ? 60 : 40;
+            var spacing = isHorizontalAxis ? 100 : 60;
             var n = Math.max(Math.round(width / spacing), 2);
             axis.ticks(n);
         },
@@ -868,7 +868,7 @@ SIREPO.app.directive('plot2d', function(plotting) {
         templateUrl: '/static/html/plot2d.html' + SIREPO.SOURCE_CACHE_KEY,
         controller: function($scope) {
             var ASPECT_RATIO = 4.0 / 7;
-            $scope.margin = {top: 50, right: 20, bottom: 50, left: 70};
+            $scope.margin = {top: 50, right: 20, bottom: 50, left: 80};
             $scope.width = $scope.height = 0;
             $scope.dataCleared = true;
             var focusPoint, graphLine, points, xAxis, xAxisGrid, xAxisScale, xDomain, yAxis, yAxisGrid, yAxisScale, yDomain, zoom;
@@ -1005,7 +1005,7 @@ SIREPO.app.directive('plot3d', function(appState, plotting) {
             var MIN_PIXEL_RESOLUTION = 10;
             $scope.margin = 50;
             $scope.bottomPanelMargin = {top: 10, bottom: 30};
-            $scope.rightPanelMargin = {left: 10, right: 40};
+            $scope.rightPanelMargin = {left: 10, right: 50};
             // will be set to the correct size in resize()
             $scope.canvasSize = 0;
             $scope.titleCenter = 0;
@@ -1374,7 +1374,7 @@ SIREPO.app.directive('heatmap', function(appState, plotting) {
         templateUrl: '/static/html/heatplot.html' + SIREPO.SOURCE_CACHE_KEY,
         controller: function($scope) {
 
-            $scope.margin = {top: 40, left: 60, right: 100, bottom: 50};
+            $scope.margin = {top: 40, left: 80, right: 100, bottom: 50};
             // will be set to the correct size in resize()
             $scope.canvasSize = {
                 width: 0,
@@ -1544,10 +1544,11 @@ SIREPO.app.directive('parameterPlot', function(plotting) {
         templateUrl: '/static/html/plot2d.html' + SIREPO.SOURCE_CACHE_KEY,
         controller: function($scope) {
             var ASPECT_RATIO = 4.0 / 7;
-            $scope.margin = {top: 50, right: 20, bottom: 50, left: 70};
+            $scope.margin = {top: 50, right: 25, bottom: 50, left: 80};
+            $scope.wantLegend = true;
             $scope.width = $scope.height = 0;
             $scope.dataCleared = true;
-            var graphLine, xAxis, xAxisGrid, xAxisScale, xDomain, yAxis, yAxisGrid, yAxisScale, yDomain, y1Label, y2Label, zoom, xPoints;
+            var graphLine, xAxis, xAxisGrid, xAxisScale, xDomain, yAxis, yAxisGrid, yAxisScale, yDomain, zoom, xPoints;
 
             function refresh() {
                 if (! xDomain) {
@@ -1618,38 +1619,64 @@ SIREPO.app.directive('parameterPlot', function(plotting) {
                         return yAxisScale(d);
                     });
                 resetZoom();
-                // y1/y2 legend
-                select('svg')
-                    .append('circle').attr('class', 'line-y1').attr('r', 5).attr('cx', 8).attr('cy', 10);
-                y1Label = select('svg')
-                    .append('text').attr('class', 'focus-text').attr('x', 16).attr('y', 16);
-                select('svg')
-                    .append('circle').attr('class', 'line-y2').attr('r', 5).attr('cx', 8).attr('cy', 30);
-                y2Label = select('svg')
-                    .append('text').attr('class', 'focus-text').attr('x', 16).attr('y', 36);
             };
 
             $scope.load = function(json) {
                 $scope.dataCleared = false;
+                var pointCount = json.points ? json.points.length : json.plots[0].points.length;
                 xPoints = json.x_points
                     ? json.x_points
-                    : plotting.linspace(json.x_range[0], json.x_range[1], json.points.length);
+                    : plotting.linspace(json.x_range[0], json.x_range[1], pointCount);
                 $scope.xRange = json.x_range;
                 var xdom = [json.x_range[0], json.x_range[1]];
                 xDomain = xdom;
                 xAxisScale.domain(xdom);
                 yDomain = [json.y_range[0], json.y_range[1]];
                 yAxisScale.domain(yDomain).nice();
-                var viewport = select('.plot-viewport');
-                viewport.selectAll('.line').remove();
-                viewport.append('path').attr('class', 'line line-y1').datum(json.points[0]);
-                viewport.append('path').attr('class', 'line line-y2').datum(json.points[1]);
                 select('.y-axis-label').text(plotting.extractUnits($scope, 'y', json.y_label));
                 select('.x-axis-label').text(plotting.extractUnits($scope, 'x', json.x_label));
                 select('.main-title').text(json.title);
+
+                // data may contain 2 plots (y1, y2) or multiple plots (plots)
+                var plots = json.plots || [
+                    {
+                        points: json.points[0],
+                        label: json.y1_title,
+                        color: '#1f77b4',
+                    },
+                    {
+                        points: json.points[1],
+                        label: json.y2_title,
+                        color: '#ff7f0e',
+                    },
+                ];
+
+                var viewport = select('.plot-viewport');
+                viewport.selectAll('.line').remove();
+                var legend = select('.sr-plot-legend');
+                legend.selectAll('.sr-plot-legend-item').remove();
+                for (var i = 0; i < plots.length; i++) {
+                    var plot = plots[i];
+                    viewport.append('path')
+                        .attr('class', 'line line-color')
+                        .style('stroke', plot.color)
+                        .datum(plot.points);
+                    var item = legend.append('g').attr('class', 'sr-plot-legend-item');
+                    item.append('circle')
+                        .attr('r', 5)
+                        .attr('cx', 8)
+                        .attr('cy', 10 + i * 20)
+                        .style('stroke', plot.color)
+                        .style('fill', plot.color);
+                    item.append('text')
+                        .attr('class', 'focus-text')
+                        .attr('x', 16)
+                        .attr('y', 16 + i * 20)
+                        .text(plot.label);
+                }
+                $scope.margin.top = json.title ? 50 : 10;
+                $scope.margin.bottom = 50 + 20 * plots.length;
                 $scope.resize();
-                y1Label.text(json.y1_title);
-                y2Label.text(json.y2_title);
             };
 
             $scope.resize = function() {
@@ -1692,7 +1719,7 @@ SIREPO.app.directive('particle', function(plotting) {
         templateUrl: '/static/html/plot2d.html' + SIREPO.SOURCE_CACHE_KEY,
         controller: function($scope) {
             var ASPECT_RATIO = 4.0 / 7;
-            $scope.margin = {top: 50, right: 20, bottom: 50, left: 70};
+            $scope.margin = {top: 50, right: 25, bottom: 50, left: 80};
             $scope.width = $scope.height = 0;
             $scope.dataCleared = true;
             var graphLine, xAxis, xAxisGrid, xAxisScale, xDomain, yAxis, yAxisGrid, yAxisScale, yDomain, zoom;
@@ -1788,17 +1815,17 @@ SIREPO.app.directive('particle', function(plotting) {
                 }
                 if (json.lost_x && json.lost_x.length) {
                     for (i = 0; i < json.lost_x.length; i++) {
-                        viewport.append('path').attr('class', 'line line-error').datum(
+                        viewport.append('path').attr('class', 'line line-reflected').datum(
                             d3.zip(json.lost_x[i], json.lost_y[i]));
                     }
                     // absorbed/reflected legend
                     select('svg')
-                        .append('circle').attr('class', 'line-y1').attr('r', 5).attr('cx', 8).attr('cy', 10);
+                        .append('circle').attr('class', 'line-absorbed').attr('r', 5).attr('cx', 8).attr('cy', 10);
                     select('svg')
                         .append('text').attr('class', 'focus-text').attr('x', 16).attr('y', 16)
                         .text('Absorbed');
                     select('svg')
-                        .append('circle').attr('class', 'line-error').attr('r', 5).attr('cx', 8).attr('cy', 30);
+                        .append('circle').attr('class', 'line-reflected').attr('r', 5).attr('cx', 8).attr('cy', 30);
                     select('svg')
                         .append('text').attr('class', 'focus-text').attr('x', 16).attr('y', 36)
                         .text('Reflected');
