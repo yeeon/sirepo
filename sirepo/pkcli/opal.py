@@ -21,11 +21,7 @@ def run(cfg_dir):
     with pkio.save_chdir(cfg_dir):
         data = simulation_db.read_json(template_common.INPUT_BASE_NAME)
         model = data['models'][data['report']]
-        exec(pkio.read_text(template_common.PARAMETERS_PYTHON_FILE), locals(), locals())
-        opal_input_file = 'opal.in'
-        pkio.write_text(opal_input_file, input_file)
-        pksubprocess.check_call_with_signals(['opal', opal_input_file], msg=pkdp)
-
+        _run_opal()
         with h5py.File('opal.h5', 'r') as f:
             x = np.array(f['/Step#0/{}'.format(model['x'])])
             y = np.array(f['/Step#0/{}'.format(model['y'])])
@@ -43,8 +39,26 @@ def run(cfg_dir):
         simulation_db.write_result(res)
 
 
+def run_background(cfg_dir):
+    """Run elegant as a background task
+
+    Args:
+        cfg_dir (str): directory to run elegant in
+    """
+    with pkio.save_chdir(cfg_dir):
+        _run_opal()
+        simulation_db.write_result({})
+
+
 def _label(field):
     if field in ('x', 'y', 'z'):
         return '{} [m]'.format(field)
     #TODO(pjm): need units for px, py, ... fields?
     return '{} [ ]'.format(field)
+
+
+def _run_opal():
+    exec(pkio.read_text(template_common.PARAMETERS_PYTHON_FILE), locals(), locals())
+    opal_input_file = 'opal.in'
+    pkio.write_text(opal_input_file, input_file)
+    pksubprocess.check_call_with_signals(['opal', opal_input_file], msg=pkdp)

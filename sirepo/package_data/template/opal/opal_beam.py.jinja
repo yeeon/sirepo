@@ -3,36 +3,9 @@
 input_file = """
 OPTION, ECHO=FALSE;
 OPTION, INFO=TRUE;  //psdump and statdump are in time steps
-OPTION, PSDUMPFREQ = 10;  //How often 6d info is dumped to .h5
+OPTION, PSDUMPFREQ = 100;  //How often 6d info is dumped to .h5
 OPTION, STATDUMPFREQ = 10; //How often beam stats dumped to .stat.
 OPTION, VERSION = 10600;
-
-// mockup-up beamline
-REAL BC_ENERGY = 147E6;
-
-l3_bm1: SBEND, L = 0.193330785069, ANGLE = 0.234799886036, E1 = 0.0, E2 = 0.234799886036,
-	ROTATION = Pi, DESIGNENERGY = BC_ENERGY,
-	ELEMEDGE = 0.993787666667;
-
-l3_qm1: QUADRUPOLE, L = 0.0776, K1 = -0.273028405560,
-	ELEMEDGE = 1.30812942262;
-
-l3_bm2: SBEND, L = 0.193330785069, ANGLE = 0.234799886036, E1 = 0.234799886036, E2 = 0.0,
-	ROTATION = 0.0, DESIGNENERGY = BC_ENERGY,
-	ELEMEDGE = 1.78187051761;
-
-l3_bm3: SBEND, L = 0.192426872358, ANGLE = 0.13324209955, E1 = 0.0, E2 = 0.13324209955,
-	ROTATION = 0.0, DESIGNENERGY = BC_ENERGY,
-	ELEMEDGE = 2.47364645604;
-
-l3_qm2: QUADRUPOLE, L = 0.0776, K1 = 0.472455279457,
-	 ELEMEDGE = 3.65509790824;
-
-l3_bm4: SBEND, L = 0.192426872358, ANGLE = 0.13324209955, E1 = 0.13324209955, E2 = 0.0,
-	ROTATION = Pi, DESIGNENERGY = BC_ENERGY,
-	ELEMEDGE = 3.8550470123;
-
-BC1_line: LINE=(l3_bm1, l3_qm1, l3_bm2, l3_bm3, l3_qm2, l3_bm4);
 
 Beam1: BEAM, PARTICLE = {{beam_particle}}, pc = P0, NPART = {{beam_npart}}, BFREQ = {{beam_bfreq}},
        BCURRENT = {{beam_bcurrent}}, MASS = {{beam_mass}}, CHARGE = {{beam_charge}};
@@ -95,7 +68,10 @@ Dist1: DISTRIBUTION, DISTRIBUTION = {{distribution_type}},
   OFFSETPY = {{distribution_offsetpy}},
   OFFSETPZ = {{distribution_offsetpz}};
 
-TRACK, LINE = BC1_line, BEAM = BEAM1, MAXSTEPS = 1000, DT = {5.0e-12};
+DR1:    DRIFT, L = 0.4, ELEMEDGE = 0.0;
+DriftTest: Line = (DR1);
+
+TRACK, LINE = DriftTest, BEAM = BEAM1, MAXSTEPS = 0, DT = {5.0e-12};
   RUN, METHOD = "PARALLEL-T", BEAM = Beam1, FIELDSOLVER = Fs1, DISTRIBUTION = Dist1;
 ENDTRACK;
 

@@ -1,0 +1,54 @@
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-md-6 col-xl-4">
+
+      <div class="panel panel-info">
+        <div class="panel-heading clearfix">
+          <span class="sr-panel-heading">Simulation Status</span>
+          <div class="sr-panel-options pull-right">
+            <a href data-ng-click="visualization.panelState.toggleHidden('simulationStatus')" data-ng-hide="visualization.panelState.isHidden('simulationStatus')" title="Hide"><span class="sr-panel-heading glyphicon glyphicon-triangle-top"></span></a>
+            <a href data-ng-click="visualization.panelState.toggleHidden('simulationStatus')" data-ng-show="visualization.panelState.isHidden('simulationStatus')" title="Show"><span class="sr-panel-heading glyphicon glyphicon-triangle-bottom"></span></a>
+          </div>
+        </div>
+        <div class="panel-body" data-ng-hide="visualization.panelState.isHidden('simulationStatus')">
+          <form name="form" class="form-horizontal" autocomplete="off" novalidate data-ng-show="visualization.isStateProcessing()">
+            <div class="col-sm-12" data-ng-show="visualization.isStatePending()">
+              <div>
+                {{ visualization.stateAsText() }}  {{ visualization.dots }}
+              </div>
+            </div>
+            <div class="col-sm-12" data-ng-show="visualization.isStateRunning()">
+              <div>
+                {{ visualization.stateAsText() }}  {{ visualization.dots }}
+                <div data-simulation-status-timer="visualization.timeData"></div>
+              </div>
+              <div class="progress">
+                <div class="progress-bar" data-ng-class="{ 'progress-bar-striped active': visualization.isInitializing() }" role="progressbar" aria-valuenow="{{ visualization.displayPercentComplete() }}" aria-valuemin="0" aria-valuemax="100" data-ng-attr-style="width: {{ visualization.displayPercentComplete() }}%">
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6 pull-right">
+              <button class="btn btn-default" data-ng-click="visualization.cancelSimulation()">End Simulation</button>
+            </div>
+          </form>
+          <form name="form" class="form-horizontal" autocomplete="off" novalidate data-ng-show="visualization.isStateStopped()">
+            <div class="col-sm-12">
+              Simulation
+              <span>{{ visualization.stateAsText() }}</span><span data-ng-show="visualization.hasTimeData()">:
+              <span data-simulation-status-timer="visualization.timeData"></span>
+              </span>
+            </div>
+
+            <div>
+              <div class="col-sm-5" data-ng-show="visualization.isStateStopped()">
+                <button class="btn btn-default" data-ng-click="visualization.runSimulation()">Start New Simulation</button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /row -->
+</div> <!-- /container -->

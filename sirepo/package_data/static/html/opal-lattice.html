@@ -1,0 +1,62 @@
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-sm-12 col-md-6 col-xl-7">
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="panel panel-info">
+            <div class="panel-heading"><span class="sr-panel-heading">Beamline Report - L2_to_L4</span> <div class="sr-panel-options pull-right"><a href><span class="sr-panel-heading glyphicon glyphicon-cloud-download" style="margin-bottom: 0"></span></a><a href><span class="sr-panel-heading glyphicon glyphicon-triangle-top" style="margin-bottom: 0"></span></a></div></div>
+            <div class="panel-body">
+              <img class="img-responsive" src="static/img/opal-beamline-mockup.png" />
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-12">
+          <div data-beamline-editor="" data-controller="lattice"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-12 col-md-6 col-xl-5" data-ng-attr-style="height: {{ lattice.splitPaneHeight() }}">
+      <div class="sr-split-pane-frame">
+	<div data-split-pane>
+	  <div data-split-pane-component>
+	    <div class="sr-split-pane-component-inner">
+
+              <div class="panel panel-info">
+                <div class="panel-heading"><span class="sr-panel-heading">Beamlines</span></div>
+                <div class="panel-body">
+
+                  <button class="btn btn-info btn-xs pull-right" accesskey="b"><span class="glyphicon glyphicon-plus"></span> New <u>B</u>eamline</button>
+
+                  <div data-beamline-table="" data-controller="lattice"></div>
+                </div>
+              </div>
+
+	    </div>
+	  </div>
+	  <div data-split-pane-divider data-height="15px"></div>
+	  <div data-split-pane-component data-height="70%">
+	    <div class="sr-split-pane-component-inner">
+
+              <div class="panel panel-info">
+                <div class="panel-heading"><span class="sr-panel-heading">Beamline Elements</span></div>
+                <div class="panel-body">
+
+                  <div class="pull-right">
+                    <button class="btn btn-info btn-xs">Variables</button>
+                    <button class="btn btn-info btn-xs" accesskey="e"><span class="glyphicon glyphicon-plus"></span> New <u>E</u>lement</button>
+                  </div>
+
+                  <div data-element-table="" data-controller="lattice"></div>
+                </div>
+              </div>
+
+
+	    </div>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </div> <!-- /row -->
+</div> <!-- /container -->
+
+<div data-ng-drag-clone=""><div class="badge elegant-icon elegant-item-selected"><span>{{ clonedData.name }}</span></div></div>

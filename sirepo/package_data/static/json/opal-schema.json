@@ -45,7 +45,8 @@
         "bunchReport": {
             "x": ["X Value", "PhaseSpaceCoordinate"],
             "y": ["Y Value", "PhaseSpaceCoordinate"],
-            "histogramBins": ["Histogram Bins", "Integer"]
+            "histogramBins": ["Histogram Bins", "Integer"],
+            "colorMap": ["Color Map", "ColorMap", "viridis"]
         },
         "distribution": {
             "type": ["Distribution Type", "DistributionType"],
@@ -116,7 +117,8 @@
             "advanced": [
                 "x",
                 "y",
-                "histogramBins"
+                "histogramBins",
+                "colorMap"
             ]
         },
         "distribution": {
@@ -133,7 +135,7 @@
                 "gaussian_sigmapz",
                 "flattop_sigmax",
                 "flattop_sigmay",
-                "flattop_sigmaz", 
+                "flattop_sigmaz",
                 "binomial_mx",
                 "binomial_my",
                 "binomial_mz",
