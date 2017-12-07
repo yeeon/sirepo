@@ -63,14 +63,24 @@ def models_related_to_report(data):
 
 
 def python_source_for_model(data, model):
-    return ''
+    return _generate_parameters_file(data, is_parallel=True) + '''
+with open('opal.in', 'w') as f:
+    f.write(input_file)
+
+import os
+os.system('opal opal.in')
+'''
 
 
 def write_parameters(data, schema, run_dir, is_parallel):
     template_common.validate_models(data, schema)
-    v = template_common.flatten_data(data['models'], {})
-    template_file = 'opal' if is_parallel else 'opal_beam'
     pkio.write_text(
         run_dir.join(template_common.PARAMETERS_PYTHON_FILE),
-        pkjinja.render_file(template_common.resource_dir(SIM_TYPE).join('{}.py.jinja'.format(template_file)), v),
+        _generate_parameters_file(data, is_parallel),
     )
+
+
+def _generate_parameters_file(data, is_parallel):
+    v = template_common.flatten_data(data['models'], {})
+    template_file = 'opal' if is_parallel else 'opal_beam'
+    return pkjinja.render_resource('template/opal/{}.py'.format(template_file), v)
