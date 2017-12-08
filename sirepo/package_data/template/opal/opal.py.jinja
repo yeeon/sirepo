@@ -10,6 +10,7 @@ OPTION, VERSION = 10600;
 // mockup-up beamline
 REAL BC_ENERGY = 147E6;
 
+DR1:    DRIFT, L = 0.993787666667, ELEMEDGE = 0.0;
 l3_bm1: SBEND, L = 0.193330785069, ANGLE = 0.234799886036, E1 = 0.0, E2 = 0.234799886036,
 	ROTATION = Pi, DESIGNENERGY = BC_ENERGY,
 	ELEMEDGE = 0.993787666667;
@@ -32,7 +33,7 @@ l3_bm4: SBEND, L = 0.192426872358, ANGLE = 0.13324209955, E1 = 0.13324209955, E2
 	ROTATION = Pi, DESIGNENERGY = BC_ENERGY,
 	ELEMEDGE = 3.8550470123;
 
-BC1_line: LINE=(l3_bm1, l3_qm1, l3_bm2, l3_bm3, l3_qm2, l3_bm4);
+BC1_line: LINE=(DR1, l3_bm1, l3_qm1, l3_bm2, l3_bm3, l3_qm2, l3_bm4);
 
 Beam1: BEAM, PARTICLE = {{beam_particle}}, pc = P0, NPART = {{beam_npart}}, BFREQ = {{beam_bfreq}},
        BCURRENT = {{beam_bcurrent}}, MASS = {{beam_mass}}, CHARGE = {{beam_charge}};

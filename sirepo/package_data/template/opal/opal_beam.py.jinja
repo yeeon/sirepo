@@ -71,7 +71,7 @@ Dist1: DISTRIBUTION, DISTRIBUTION = {{distribution_type}},
 DR1:    DRIFT, L = 0.4, ELEMEDGE = 0.0;
 DriftTest: Line = (DR1);
 
-TRACK, LINE = DriftTest, BEAM = BEAM1, MAXSTEPS = 0, DT = {5.0e-12};
+TRACK, LINE = DriftTest, BEAM = BEAM1, MAXSTEPS = 10, DT = 5.0e-12;
   RUN, METHOD = "PARALLEL-T", BEAM = Beam1, FIELDSOLVER = Fs1, DISTRIBUTION = Dist1;
 ENDTRACK;
 

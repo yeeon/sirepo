@@ -82,7 +82,7 @@
         },
         "simulation": {
             "folder": "/",
-            "isExample": false,
+            "isExample": true,
             "name": "OPAL Mock-up",
             "outOfSessionSimulationId": "",
             "simulationId": "9TGZbYdl",

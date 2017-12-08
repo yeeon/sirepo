@@ -10,6 +10,14 @@
             ["FLATTOP", "Flat Top"],
             ["BINOMIAL", "Binomial"]
         ],
+        "FramesPerSecond": [
+            ["1", "1"],
+            ["2", "2"],
+            ["5", "5"],
+            ["10", "10"],
+            ["15", "15"],
+            ["20", "20"]
+        ],
         "ParticleName": [
             ["POSITRON", "Positron"],
             ["ELECTRON", "Electron"],
@@ -31,6 +39,77 @@
             ["z", "z"],
             ["pz", "Pz"],
             ["q", "q"]
+        ],
+        "PlotField": [
+            ["SPOS", "SPOS"],
+            ["RefPartR x", "RefPartR x"],
+            ["RefPartR y", "RefPartR y"],
+            ["RefPartR z", "RefPartR z"],
+            ["centroid x", "centroid x"],
+            ["centroid y", "centroid y"],
+            ["centroid z", "centroid z"],
+            ["RMSX x", "RMSX x"],
+            ["RMSX y", "RMSX y"],
+            ["RMSX z", "RMSX z"],
+            ["RefPartP x", "RefPartP x"],
+            ["RefPartP y", "RefPartP y"],
+            ["RefPartP z", "RefPartP z"],
+            ["MEANP x", "MEANP x"],
+            ["MEANP y", "MEANP y"],
+            ["MEANP z", "MEANP z"],
+            ["RMSP x", "RMSP x"],
+            ["RMSP y", "RMSP y"],
+            ["RMSP z", "RMSP z"],
+            ["#varepsilon x", "ε x"],
+            ["#varepsilon y", "ε y"],
+            ["#varepsilon z", "ε z"],
+            ["#varepsilon-geom x", "ε-geom x"],
+            ["#varepsilon-geom y", "ε-geom y"],
+            ["#varepsilon-geom z", "ε-geom z"],
+            ["minX x", "minX x"],
+            ["minX y", "minX y"],
+            ["minX z", "minX z"],
+            ["maxX x", "maxX x"],
+            ["maxX y", "maxX y"],
+            ["maxX z", "maxX z"],
+            ["minP x", "minP x"],
+            ["minP y", "minP y"],
+            ["minP z", "minP z"],
+            ["maxP x", "maxP x"],
+            ["maxP y", "maxP y"],
+            ["maxP z", "maxP z"],
+            ["Step", "Step"],
+            ["LocalTrackStep", "LocalTrackStep"],
+            ["GlobalTrackStep", "GlobalTrackStep"],
+            ["#sigma", "σ"],
+            ["TIME", "TIME"],
+            ["ENERGY", "ENERGY"],
+            ["dE", "dE"],
+            ["MASS", "MASS"],
+            ["CHARGE", "CHARGE"],
+            ["NumBunch", "NumBunch"],
+            ["SteptoLastInj", "SteptoLastInj"],
+            ["spos-head", "spos-head"],
+            ["spos-ref", "spos-ref"],
+            ["spos-tail", "spos-tail"],
+            ["B-ref x", "B-ref x"],
+            ["B-ref y", "B-ref y"],
+            ["B-ref z", "B-ref z"],
+            ["E-ref x", "E-ref x"],
+            ["E-ref y", "E-ref y"],
+            ["E-ref z", "E-ref z"],
+            ["B-head x", "B-head x"],
+            ["B-head y", "B-head y"],
+            ["B-head z", "B-head z"],
+            ["E-head x", "E-head x"],
+            ["E-head y", "E-head y"],
+            ["E-head z", "E-head z"],
+            ["B-tail x", "B-tail x"],
+            ["B-tail y", "B-tail y"],
+            ["B-tail z", "B-tail z"],
+            ["E-tail x", "E-tail x"],
+            ["E-tail y", "E-tail y"],
+            ["E-tail z", "E-tail z"]
         ]
     },
     "model": {
@@ -41,6 +120,13 @@
             "bfreq": ["Bunch Frequency [MHz]", "Float"],
             "bcurrent": ["Bunch Current [A]", "Float"],
             "npart": ["Number of Macro Particles", "Integer"]
+        },
+        "bunchAnimation": {
+            "x": ["X Value", "PhaseSpaceCoordinate"],
+            "y": ["Y Value", "PhaseSpaceCoordinate"],
+            "histogramBins": ["Histogram Bins", "Integer"],
+            "framesPerSecond": ["Frames per Second", "FramesPerSecond"],
+            "colorMap": ["Color Map", "ColorMap", "viridis"]
         },
         "bunchReport": {
             "x": ["X Value", "PhaseSpaceCoordinate"],
@@ -97,6 +183,16 @@
         },
         "fieldSolver": {
         },
+        "plot1Animation": {
+            "x_field": ["X Field", "PlotField", "SPOS"],
+            "y1_field": ["Y Field", "PlotField", "#varepsilon x"],
+            "y2_field": ["Y Field", "PlotField", "#varepsilon y"]
+        },
+        "plot2Animation": {
+            "x_field": ["X Field", "PlotField", "SPOS"],
+            "y1_field": ["Y Field", "PlotField", "#varepsilon x"],
+            "y2_field": ["Y Field", "PlotField", "#varepsilon y"]
+        },
         "simulation": {}
     },
     "view": {
@@ -111,6 +207,16 @@
                 "npart"
             ],
             "advanced": []
+        },
+        "bunchAnimation": {
+            "title": "Bunch Animation",
+            "advanced": [
+                "x",
+                "y",
+                "histogramBins",
+                "framesPerSecond",
+                "colorMap"
+            ]
         },
         "bunchReport": {
             "title": "Bunch Report",
@@ -199,6 +305,22 @@
                     "offsetpy",
                     "offsetpz"
                 ]]
+            ]
+        },
+        "plot1Animation": {
+            "title": "Plot #1",
+            "advanced": [
+                "x_field",
+                "y1_field",
+                "y2_field"
+            ]
+        },
+        "plot2Animation": {
+            "title": "Plot #2",
+            "advanced": [
+                "x_field",
+                "y1_field",
+                "y2_field"
             ]
         },
         "simulation": {

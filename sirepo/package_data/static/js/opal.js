@@ -84,14 +84,29 @@ SIREPO.app.controller('OpalSourceController', function (appState, panelState, $s
     });
 });
 
-SIREPO.app.controller('VisualizationController', function(panelState, persistentSimulation, $scope) {
+SIREPO.app.controller('VisualizationController', function(appState, frameCache, panelState, persistentSimulation, $scope) {
     var self = this;
     self.panelState = panelState;
     self.model = 'animation';
     self.handleStatus = function(data) {
         self.simulationErrors = data.errors || '';
+        frameCache.setFrameCount(data.frameCount);
+        if (data.startTime && data.frameCount && ! data.error) {
+            ['bunchAnimation', 'plot1Animation', 'plot2Animation'].forEach(function(f) {
+                appState.models[f].startTime = data.startTime;
+                appState.saveQuietly(f);
+            });
+            ['plot1Animation', 'plot2Animation'].forEach(function(f) {
+                frameCache.setFrameCount(1, f);
+            });
+
+        }
     };
-    persistentSimulation.initProperties(self, $scope, {});
+    persistentSimulation.initProperties(self, $scope, {
+        bunchAnimation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'x', 'y', 'histogramBins', 'startTime'],
+        plot1Animation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'x_field', 'y1_field', 'y2_field', 'startTime'],
+        plot2Animation: [SIREPO.ANIMATION_ARGS_VERSION + '1', 'x_field', 'y1_field', 'y2_field', 'startTime'],
+    });
 });
 
 SIREPO.app.directive('appHeader', function(appState, panelState) {
