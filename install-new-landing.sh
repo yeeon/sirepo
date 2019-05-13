@@ -46,6 +46,8 @@ s{(?<=href=")#(?=">Synergia</a>)}{/old#/synergia};
 s{(?<=href=")#(?=">Warp</a>)}{/old#/warppba};
 s{(?<=href=")#(?=">Zgoubi</a>)}{/old#/zgoubi};
 
+s{(?<=href=")https://sirepo.com}{/}g;
+
 # shadow doesn't work for now so we are not showing
 m{">Shadow3</a>} && ($_ = '');
 
@@ -89,7 +91,7 @@ elsif (m{>Include Particle Spin<}) {
     $learn = undef;
 }
 elsif (m{>Plasma Accelerators<}) {
-    $launch = '/warp';
+    $launch = '/warppba';
     $learn = undef;
 }
 elsif (m{>Include Electron Cooling<}) {
