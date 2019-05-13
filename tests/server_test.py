@@ -20,7 +20,7 @@ pytest.importorskip('sdds')
 def test_basic():
     from sirepo import srunit
     fc = srunit.flask_client()
-    resp = fc.get('/')
+    resp = fc.get('/old')
     assert 'LandingPageController' in resp.get_data(), \
         'Top level document is the landing page'
 
