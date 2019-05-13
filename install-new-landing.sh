@@ -4,10 +4,14 @@ cd "$(dirname "$0")"
 n=$PWD/sirepo/package_data/static/en
 rm -rf "$n"
 mkdir "$n"
-v=../../vermilion
+if [[ ${1:-} == container-build ]]; then
+    v=../vermilion
+else
+    v=../../vermilion
+fi
 if [[ -d $v ]]; then
     cd "$v"/sirepo
-#    git pull
+    git pull
 else
     mkdir "$v"
     cd "$v"
