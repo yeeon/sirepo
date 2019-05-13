@@ -28,6 +28,8 @@ use strict;
 our($launch, $learn, $hide_next_article);
 # relocate to /en
 m{bootstrapcdn.com/} || s{(?=/((css|img|js|news|video|static)/|[a-z-]+.html))}{/en};
+# remove comments: unnecessary and top of file should be <!DOCTYPE
+m{<!-- *(BEGIN|END)} && ($_ = '');
 
 # All Radiasoft
 s{Radiasoft}{RadiaSoft}g;
@@ -75,7 +77,10 @@ if (m{>Particle Accelerators<}) {
     $launch = '/elegant';
     $learn = '/en/particle-accelerators.html';
 }
-elsif (m{>X-ray Beamlines<}) {
+
+# Sometimes it is X-ray Beamlines and other times X-Ray Beamlines
+# so need to search case-insensitive. Need to be consistent on naming.
+elsif (m{>X-ray Beamlines<}i) {
     $launch = '/srw';
     $learn = '/en/xray-beamlines.html';
 }
@@ -105,7 +110,13 @@ elsif ($hide_next_article && m{<article}) {
     s{(?<=<article)}{ style="display: none"};
     $hide_next_article = 0;
 }
-
+elsif (m{hover-green full-width.*<span>(\w+)}) {
+    my($u) = $1 eq 'Bunch' ? 'bunchComp+-+fourDipoleCSR'
+        : $1 eq 'Compact' ? 'Compact+Storage+Ring'
+        : $1 eq 'Spear' ? 'SPEAR3'
+        : die("unknown example: $1");
+    s{#}{/find-by-name/elegant/default/$u};
+}
 m{>Learn More<} && s{#}{$learn};
 m{>(Launch|Simulate Now)<} && s{#}{$launch};
 EOF
