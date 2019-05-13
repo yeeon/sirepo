@@ -214,7 +214,7 @@ def _init_uris(app, simulation_db):
             srunit_uri = v
     assert _default_route, \
         'missing default route'
-    _empty_route = _uri_to_route.about
+    _empty_route = _uri_to_route.en
     app.add_url_rule('/<path:path>', '_dispatch', _dispatch, methods=('GET', 'POST'))
     app.add_url_rule('/', '_dispatch_empty', _dispatch_empty, methods=('GET', 'POST'))
 

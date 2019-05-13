@@ -20,7 +20,7 @@ import flask_mail
 
 @api_perm.allow_visitor
 def api_comsol():
-    return server.javascript_redirect('/#/comsol')
+    return server.javascript_redirect('/old#/comsol')
 
 
 @api_perm.allow_visitor
