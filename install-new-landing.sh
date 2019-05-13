@@ -36,9 +36,6 @@ s{Radiasoft}{RadiaSoft}g;
 
 # these could be included statically, since that would be not found but
 # that's ok for testing. You can hover and see the URL is correct
-
-####learn more pages: old pages for non-ele/srw
-
 s{(?<=href=")#(?=">elegant</a>)}{/en/particle-accelerators.html};
 s{(?<=href=")#(?=">RsVND</a>)}{/old#/warpvnd};
 s{(?<=href=")#(?=">SRW</a>)}{/en/xray-beamlines.html};
