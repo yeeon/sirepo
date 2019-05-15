@@ -1,27 +1,5 @@
 $(function() {
   if ($('body').hasClass('landing')) {
-    // Show dropdown menu on Supported Codes click
-    $('.landing .supported-codes').on('click', function(e) {
-      e.preventDefault();
-      $('.landing .nav-takeover').addClass('active');
-      $('body').css('overflow', 'hidden');
-    });
-
-    // Close dropdown menu on close click
-    $('.landing .nav-takeover-close').on('click', function(e) {
-      e.preventDefault();
-      $('.landing .nav-takeover').removeClass('active');
-      $('body').css('overflow', 'auto');
-    });
-
-    // Close dropdown menu on escape
-    $(document).on('keyup', function(e) {
-      if (e.which == 27) {
-        $('.landing .nav-takeover').removeClass('active');
-        $('body').css('overflow', 'auto');
-      }
-    });
-
     // Slider
     if ($('.get-started').length > 0) {
       var steps = 4;
