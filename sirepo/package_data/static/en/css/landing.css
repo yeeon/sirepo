@@ -45,7 +45,7 @@
       height: 14px;
       width: 68px;
       margin-bottom: 5px;
-      background-image: url("/img/heading-decoration.png");
+      background-image: url("/en/img/heading-decoration.png");
       background-position: center center;
       background-repeat: no-repeat; }
   .landing h4 {
@@ -334,7 +334,7 @@
     .landing .header-decoration::before {
       content: '';
       position: absolute;
-      background-image: url("/img/curve-header-left.png");
+      background-image: url("/en/img/curve-header-left.png");
       background-size: cover;
       bottom: 2px;
       left: -60px;
@@ -343,7 +343,7 @@
     .landing .header-decoration::after {
       content: '';
       position: absolute;
-      background-image: url("/img/curve-header-right.png");
+      background-image: url("/en/img/curve-header-right.png");
       background-size: cover;
       bottom: 25px;
       right: -60px;
@@ -377,7 +377,7 @@
     .landing .explore::after {
       content: '';
       position: absolute;
-      background-image: url("/img/explore-curve-bottom.png");
+      background-image: url("/en/img/explore-curve-bottom.png");
       background-position: bottom right;
       bottom: -65px;
       right: 0;
@@ -416,7 +416,7 @@
         margin: 0 15px 40px 15px; }
   .landing .perks {
     background-color: #d9f1f6;
-    background-image: url("/img/perks-bg.jpg");
+    background-image: url("/en/img/perks-bg.jpg");
     background-position: right top;
     background-repeat: no-repeat;
     background-blend-mode: multiply; }
@@ -429,13 +429,13 @@
     background-color: #005eb4;
     color: white;
     z-index: 2;
-    background-image: url("/img/get-started-curve-top.png");
+    background-image: url("/en/img/get-started-curve-top.png");
     background-position: left -217px;
     background-repeat: no-repeat; }
     .landing .get-started::after {
       content: '';
       position: absolute;
-      background-image: url("/img/get-started-curve-bottom.png");
+      background-image: url("/en/img/get-started-curve-bottom.png");
       background-position: bottom right;
       bottom: -65px;
       right: 0;
@@ -445,7 +445,7 @@
     .landing .get-started h3, .landing .get-started h4, .landing .get-started p {
       color: white; }
     .landing .get-started h3::before {
-      background-image: url("/img/heading-decoration-dark.png"); }
+      background-image: url("/en/img/heading-decoration-dark.png"); }
     .landing .get-started .btn-link::before {
       background-color: #00a2c5; }
     .landing .get-started .row {
@@ -608,7 +608,7 @@
     position: relative;
     z-index: 2;
     background-color: #666666;
-    background-image: url("/img/footer-bg.jpg");
+    background-image: url("/en/img/footer-bg.jpg");
     background-size: cover;
     color: #e5e5e5;
     padding: 55px; }

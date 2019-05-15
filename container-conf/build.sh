@@ -35,9 +35,6 @@ build_as_run_user() {
     if [[ ${TRAVIS_COMMIT:+1} ]]; then
         git checkout -qf "$TRAVIS_COMMIT"
     fi
-    if [[ -r install-new-landing.sh ]]; then
-        bash install-new-landing.sh container-build
-    fi
     local p
     for p in py3 py2; do
         pyenv global "$p"

@@ -119,7 +119,7 @@ $(function() {
 
       // Fetch article index
       $.get(
-        '/news/article-index.json',
+        '/en/news/article-index.json',
         function(articles) {
           var converter = new showdown.Converter();
           var articles_html = [];
@@ -151,7 +151,7 @@ $(function() {
             if (now >= start_date && now <= end_date) {
               promises.push(
                 $.get(
-                  '/news/' + article.markdown_file,
+                  '/en/news/' + article.markdown_file,
                   function(article_md) {
                     articles_html[index] = converter.makeHtml(article_md);
                   }

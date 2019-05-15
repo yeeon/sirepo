@@ -2,23 +2,6 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 n=$PWD/sirepo/package_data/static/en
-rm -rf "$n"
-mkdir "$n"
-if [[ ${1:-} == container-build ]]; then
-    v=../vermilion
-else
-    v=../../vermilion
-fi
-if [[ -d $v ]]; then
-    cd "$v"/sirepo
-    git pull
-else
-    mkdir "$v"
-    cd "$v"
-    git clone https://github.com/vermiliondesign/sirepo
-    cd sirepo
-fi
-cp -r --parents $(find . -name .git -prune -o -type f -print) "$n"
 
 # the news is old so we aren't going to display anything for now
 echo '[]' > "$n/news/article-index.json"
@@ -33,6 +16,9 @@ m{<!-- *(BEGIN|END)} && ($_ = '');
 
 # All Radiasoft
 s{Radiasoft}{RadiaSoft}g;
+
+s{cloud(..8209.|-)based}{<span style="white-space: nowrap">cloud&ndash;based</span>};
+s{#8209}{ndash}g;
 
 # these could be included statically, since that would be not found but
 # that's ok for testing. You can hover and see the URL is correct
